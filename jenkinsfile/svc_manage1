@@ -1,0 +1,37 @@
+properties(
+    [
+        parameters([
+            string(defaultValue: '', name: 'comp'),
+            string(defaultValue: '', name: 'service'),
+            string(defaultValue: '', name: 'action'),
+            string(defaultValue: 'prajeet', name: 'branch'),
+            string(defaultValue: '', name: 'envname')
+        ])
+    ]
+)
+
+node {
+    
+    cleanWs()
+
+    stage ('git repo checkout') {
+        git branch: 'prajeet', credentialsId: 'jenkins-ssh', url: 'git@github.com:pjitss/svc_manage_lab.git'
+    }
+
+        if (service == "APP") {
+            stage("$action $Service services in $envname") {
+                ansiblePlaybook(
+                    playbook: "appservices_main.yml",
+                    extras: "-i inventories/$envname/myapps.ini -e target_host=${comp} -e Service=\"$action\""
+                )
+            }
+        } else if (service == "APP2") {
+            stage("$action $Service services in $envname") {
+                ansiblePlaybook(
+                    playbook: "appservices_main.yml",
+                    extras: "-i inventories/$envname/myapps.ini -e target_host=${comp} -e Service=\"$action\""
+                )
+            }
+        }
+
+}

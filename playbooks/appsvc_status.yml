@@ -1,0 +1,11 @@
+- name: "get services current status"
+  win_service:
+    name: "{{ item }}"
+  register: services_status
+  with_items: "{{ services }}"
+     
+- name: "print the current status of services"
+  debug:
+    msg: "service {{ item.name }} is in {{ item.state }} state"
+  loop: "{{ services_status.results }}
+  when: "item.state is defined"

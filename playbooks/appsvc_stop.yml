@@ -1,0 +1,12 @@
+- name: "get services current status"
+  win_service:
+    name: "{{ item }}"
+  register: services_status
+  with_items: "{{ services }}"
+     
+- name: "stopping APP services"
+  win_service:
+    name: "{{ item.name }}"
+    state: stopped
+  when: item.state == 'running'
+  with_items: "{{ services_status.results }}"
