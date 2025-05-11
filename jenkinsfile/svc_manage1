@@ -15,7 +15,7 @@ node {
     cleanWs()
 
     stage ('git repo checkout') {
-        git branch: 'prajeet', credentialsId: 'jenkins-ssh', url: 'git@github.com:pjitss/svc_manage_lab.git'
+        git branch: 'jits', url: 'git@github.com:pjitss/mytests.git'
     }
 
         if (service == "APP") {
