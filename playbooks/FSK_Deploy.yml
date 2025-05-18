@@ -24,10 +24,10 @@
     - name: Fail if file already exists
       fail:
         msg: "{{ item.item }} already uploaded to Nexus"
+      loop: "{{ artifact_status.results }}"
       when:
         - item.stdout is search("200 OK")
         - task == "upload"
-      loop: "{{ artifact_status.results }}"
 
     - name: Upload file to Nexus
       shell: |
