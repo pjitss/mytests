@@ -26,8 +26,8 @@
         msg: "{{ item.item }} already uploaded to Nexus"
       loop: "{{ artifact_status.results }}"
       when:
-        - item.stdout is search("200 OK")
         - task == "upload"
+        - item.stdout is search("200 OK")
 
     - name: Upload file to Nexus
       shell: |
