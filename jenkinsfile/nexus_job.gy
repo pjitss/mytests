@@ -5,7 +5,8 @@ properties(
             string(defaultValue: '', name: 'FILENAMES'),
             string(defaultValue: '', name: 'ENVTYPE'),
             string(defaultValue: 'jits', name: 'branch'),
-            string(defaultValue: '', name: 'TASK')
+            string(defaultValue: '', name: 'TASK'),
+            string(defaultValue: '', name: 'Package-Version')
         ])
     ]
 )
