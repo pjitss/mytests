@@ -2,7 +2,7 @@
   hosts: "{{ COMP }}"
   gather_facts: false
   vars_files:
-    - "vars/common.var"
+    - "../vars/common.var"
 
   tasks:
     - name: Check if file exists in Nexus
