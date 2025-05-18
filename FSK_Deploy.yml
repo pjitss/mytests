@@ -1,0 +1,28 @@
+- name: Upload multiple files to Nexus
+  hosts: "{{ COMP }}"
+  gather_facts: false
+  vars_files:
+    - "vars/common.var"
+
+  tasks:
+    - name: Check if file exists in Nexus
+      shell: |
+        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ nexus_path }}/{{ item }}
+      register: artifact_status
+      ignore_errors: true
+      loop: "{{ file_name.split(',') }}"
+      when: task == "upload"
+
+    - name: Fail if file already exists
+      fail:
+        msg: "{{ item.item }} already uploaded to Nexus"
+      when:
+        - item.stdout is search("200 OK")
+        - task == "upload"
+      loop: "{{ artifact_status.results }}"
+
+    - name: Upload file to Nexus
+      shell: |
+        curl -v -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_np_path }}
+      when: task == "upload"
+      loop: "{{ file_name.split(',') }}"
