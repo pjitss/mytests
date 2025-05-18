@@ -69,3 +69,50 @@
     - debug:
         var: lsout.stdout_lines
       when: task == "deploy"
+
+    - name: Backup bash_profile before editing
+      copy:
+        src: "/home/appuser/.bash_profile"
+        dest: "/home/appuser/.bash_profile.bak"
+        remote_src: yes
+        owner: appuser
+        group: appuser
+        mode: '0644'
+      when: task == "deploy"
+
+    - name: Extract previous ZZZTDS version
+      shell: "grep '^export ZZZTDS=' /home/appuser/.bash_profile | tail -n 1"
+      register: prev_zzzt_line
+      ignore_errors: yes
+      when: task == "deploy"
+
+    - name: Remove all ZZZTDS lines (active or commented)
+      lineinfile:
+        path: "/home/appuser/.bash_profile"
+        regexp: '^#* *export ZZZTDS=.*'
+        state: absent
+        owner: appuser
+        group: appuser
+        mode: '0644'
+      when: task == "deploy"
+
+    - name: Add previous ZZZTDS as a comment if exists
+      lineinfile:
+        path: "/home/appuser/.bash_profile"
+        line: "# {{ prev_zzzt_line.stdout }}"
+        insertafter: EOF
+        state: present
+      when: 
+        - task == "deploy"
+        - prev_zzzt_line.stdout != ""
+
+    - name: Add current ZZZTDS line
+      lineinfile:
+        path: "/home/appuser/.bash_profile"
+        line: "export ZZZTDS=\$PPT/ZZZTDS-{{ version_id }}"
+        insertafter: EOF
+        state: present
+        owner: appuser
+        group: appuser
+        mode: '0644'
+      when: task == "deploy"
