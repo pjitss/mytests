@@ -1,0 +1,30 @@
+properties(
+    [
+        parameters([
+            string(defaultValue: '', name: 'COMP'),
+            string(defaultValue: '', name: 'FILENAMES'),
+            string(defaultValue: '', name: 'ENVTYPE'),
+            string(defaultValue: 'jits', name: 'branch'),
+            string(defaultValue: '', name: 'TASK')
+        ])
+    ]
+)
+
+node {
+    
+    cleanWs()
+
+    stage ('git repo checkout') {
+        git branch: 'jits', url: 'git@github.com:pjitss/mytests.git'
+    }
+
+    def files = FILENAMES.split(",")
+
+    for (file in files)
+    stage("Upload ${file.trim()}") {
+        ansiblePlaybook(
+        playbook: "playbooks/FSK_Deploy.pb",
+        extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e TASK=${TASK} "
+        )
+    }
+}
