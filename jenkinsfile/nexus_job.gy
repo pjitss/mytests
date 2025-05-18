@@ -23,7 +23,7 @@ node {
     for (file in files)
     stage("Upload ${file.trim()}") {
         ansiblePlaybook(
-        playbook: "playbooks/FSK_Deploy.pb",
+        playbook: "playbooks/FSK_Deploy.yml",
         extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e TASK=${TASK} "
         )
     }
