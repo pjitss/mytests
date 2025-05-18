@@ -6,7 +6,7 @@ properties(
             string(defaultValue: '', name: 'ENVTYPE'),
             string(defaultValue: 'jits', name: 'branch'),
             string(defaultValue: '', name: 'TASK'),
-            string(defaultValue: '', name: 'Package-Version')
+            string(defaultValue: '', name: 'Version')
         ])
     ]
 )
@@ -25,7 +25,7 @@ node {
     stage("Upload ${file.trim()}") {
         ansiblePlaybook(
         playbook: "playbooks/FSK_Deploy.yml",
-        extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=${TASK} -e version_id=${Package-Version}"
+        extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=${TASK} -e version_id=${Version}"
         )
     }
 }
