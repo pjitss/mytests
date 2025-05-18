@@ -24,7 +24,7 @@ node {
     stage("Upload ${file.trim()}") {
         ansiblePlaybook(
         playbook: "playbooks/FSK_Deploy.yml",
-        extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e TASK=${TASK} "
+        extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=${TASK} "
         )
     }
 }
