@@ -45,7 +45,7 @@
 
     - name: Download package from Nexus
       get_url:
-        url: "{{ nexus_path }}/{{ file_name }}"
+        url: "{{ nexus_path }}{{ file_name }}"
         dest: "/tmp/{{ file_name }}"
         mode: '0644'
         force: yes
