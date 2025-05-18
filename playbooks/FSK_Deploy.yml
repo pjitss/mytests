@@ -109,7 +109,7 @@
     - name: Add current ZZZTDS line
       lineinfile:
         path: "/home/appuser/.bash_profile"
-        line: "export ZZZTDS=\$PPT/ZZZTDS-{{ version_id }}"
+        line: 'export ZZZTDS=$PPT/ZZZTDS-{{ version_id }}'
         insertafter: EOF
         state: present
         owner: appuser
