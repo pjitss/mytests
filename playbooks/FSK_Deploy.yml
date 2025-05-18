@@ -23,6 +23,6 @@
 
     - name: Upload file to Nexus
       shell: |
-        curl -v -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_np_path }}
+        curl -v -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_path }}
       when: task == "upload"
       loop: "{{ file_name.split(',') }}"
