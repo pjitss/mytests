@@ -1,13 +1,16 @@
-- name: Extract version and set destination path
+- name: Extract version from filename
   set_fact:
     this_version: "{{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
+
+- name: Set destination path
+  set_fact:
     dest_path: >-
-      {% if 'frontend' in file %}/opt/myapp/versions/{{ this_version }}{% elif 'backend' in file %}/etc/myapp/configs/{{ this_version }}{% else %}/tmp/unknown{% endif %}
+      {% if 'frontend' in file %}/opt/myapp/versions/{{ this_version | trim }}{% elif 'backend' in file %}/etc/myapp/configs/{{ this_version | trim }}{% else %}/tmp/unknown{% endif %}
 
 - name: Show dest_path being created
   debug:
     msg: "dest_path is: '{{ dest_path }}'"
-    
+
 - name: Show extracted version
   debug:
     msg: "file={{ file }}, this_version={{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
