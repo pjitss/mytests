@@ -1,31 +1,25 @@
-- name: Prepare file version and destination
-  set_fact:
-    file_list: "{{ file_name.split(',') }}"
-
 - name: Extract version and set destination path
   set_fact:
-    this_version: "{{ (item | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
+    this_version: "{{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
     dest_path: >-
-      {% if 'frontend' in item %}
-        /opt/myapp/versions/{{ (item | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}
-      {% elif 'backend' in item %}
-        /etc/myapp/configs/{{ (item | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}
+      {% if 'frontend' in file %}
+        /opt/myapp/versions/{{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}
+      {% elif 'backend' in file %}
+        /etc/myapp/configs/{{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}
       {% else %}
         /tmp/unknown
       {% endif %}
-  loop: "{{ file_list }}"
-  register: version_and_path
 
 - name: Ensure version directory exists
   file:
-    path: "{{ item.ansible_facts.dest_path }}"
+    path: "{{ dest_path }}"
     state: directory
     mode: '0755'
 
 - name: Download package from Nexus
   get_url:
-    url: "{{ nexus_path }}/{{ item.item }}"
-    dest: "/tmp/{{ item.item }}"
+    url: "{{ nexus_path }}/{{ file }}"
+    dest: "/tmp/{{ file }}"
     mode: '0644'
     force: yes
     url_username: "{{ nexus_username }}"
@@ -34,11 +28,10 @@
 
 - name: Extract the tar.gz package
   unarchive:
-    src: "/tmp/{{ item.item }}"
-    dest: "{{ item.ansible_facts.dest_path }}"
+    src: "/tmp/{{ file }}"
+    dest: "{{ dest_path }}"
     remote_src: yes
 
 - name: Print deployment info
   debug:
-    msg: "Deployed {{ item.item }} to {{ item.ansible_facts.dest_path }}"
-
+    msg: "Deployed {{ file }} to {{ dest_path }}"
