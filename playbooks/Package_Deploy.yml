@@ -6,7 +6,7 @@
 
   tasks:
     - name: Deploy each file
-      include_tasks: deploy_one_package.yml
+      include_tasks: deploy_tar_package.yml
       loop: "{{ file_name.split(',') }}"
       loop_control:
         loop_var: file
