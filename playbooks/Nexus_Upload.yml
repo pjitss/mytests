@@ -1,0 +1,37 @@
+- name: Upload multiple files to Nexus
+  hosts: "{{ COMP }}"
+  become: yes
+  gather_facts: false
+  vars_files:
+    - "../vars/common.var"
+
+  tasks:
+
+    - name: Check if filename extension is tar.gz
+      fail:
+        msg: "package file '{{ item }}' does not have .tar.gz extension. Failing the pipeline."
+      when: item is not regex(".*\\.tar\\.gz$")
+      loop: "{{ file_name.split(',') }}"
+
+
+    - name: Check if file exists in Nexus
+      shell: |
+        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ nexus_path }}/{{ item }}
+      register: artifact_status
+      ignore_errors: true
+      loop: "{{ file_name.split(',') }}"
+      when: task == "upload"
+
+    - name: Fail if file already exists
+      fail:
+        msg: "{{ item.item }} already uploaded to Nexus"
+      loop: "{{ artifact_status.results }}"
+      when:
+        - task == "upload"
+        - item.stdout is search("200 OK")
+
+    - name: Upload file to Nexus
+      shell: |
+        curl -v -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_path }}
+      when: task == "upload"
+      loop: "{{ file_name.split(',') }}"

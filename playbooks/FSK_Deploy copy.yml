@@ -1,70 +1,34 @@
-- name: Upload multiple files to Nexus
-  hosts: "{{ COMP }}"
-  gather_facts: false
-  vars_files:
-    - "../vars/common.var"
+- name: Ensure version directory exists
+  file:
+    path: "/opt/myapp/versions/{{ version_id }}"
+    state: directory
+    mode: '0755'
+  when: task == "deploy"
 
-  tasks:
-
-    - name: Check if filename extension is tar.gz
-      fail:
-        msg: "package file '{{ item }}' does not have .tar.gz extension. Failing the pipeline."
-      when: item is not regex(".*\\.tar\\.gz$")
-      loop: "{{ file_name.split(',') }}"
-
-
-    - name: Check if file exists in Nexus
-      shell: |
-        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ nexus_path }}/{{ item }}
-      register: artifact_status
-      ignore_errors: true
-      loop: "{{ file_name.split(',') }}"
-      when: task == "upload"
-
-    - name: Fail if file already exists
-      fail:
-        msg: "{{ item.item }} already uploaded to Nexus"
-      when:
-        - item.stdout is search("200 OK")
-        - task == "upload"
-      loop: "{{ artifact_status.results }}"
-
-    - name: Upload file to Nexus
-      shell: |
-        curl -v -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_path }}
-      when: task == "upload"
-      loop: "{{ file_name.split(',') }}"
-
-    - name: Ensure version directory exists
-      file:
-        path: "/opt/myapp/versions/{{ version_id }}"
-        state: directory
-        mode: '0755'
-      when: task == "deploy"
-
+- name: Download and deploy each package with custom steps
+  block:
     - name: Download package from Nexus
       get_url:
-        url: "{{ nexus_path }}/{{ file_name }}"
-        dest: "/tmp/{{ file_name }}"
+        url: "{{ nexus_path }}/{{ item }}"
+        dest: "/tmp/{{ item }}"
         mode: '0644'
         force: yes
         url_username: "{{ nexus_username }}"
         url_password: "{{ nexus_password }}"
         validate_certs: no
-      when: task == "deploy"
 
     - name: Extract the tar.gz package
       unarchive:
-        src: "/tmp/{{ file_name }}"
-        dest: "/opt/myapp/versions/{{ version_id }}"
+        src: "/tmp/{{ item }}"
+        dest: "/opt/myapp/versions/{{ version_id }}/{{ item | regex_replace('\\.tar\\.gz$', '') }}"
         remote_src: yes
-      when: task == "deploy"
 
-    - name: (Optional) List contents of the version directory
-      shell: ls -l /opt/myapp/versions/{{ version_id }}
-      register: lsout
-      when: task == "deploy"
+    - name: Custom step for app package
+      shell: "echo 'Running app post-deploy logic for {{ item }}'"
+      when: item == 'app.tar.gz'
 
-    - debug:
-        var: lsout.stdout_lines
-      when: task == "deploy"
+    - name: Custom step for config package
+      shell: "echo 'Running config post-deploy logic for {{ item }}'"
+      when: item == 'config.tar.gz'
+  when: task == "deploy"
+  loop: "{{ file_name.split(',') }}"

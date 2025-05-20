@@ -1,0 +1,53 @@
+- name: Deploy multiple packages with custom steps
+  hosts: "{{ COMP }}"
+  gather_facts: false
+  vars_files:
+    - vars/common.vars
+
+  vars:
+    file1: "{{ file_name1 }}"
+    file2: "{{ file_name2 }}"
+    version_id: "{{ version_id }}"
+
+  tasks:
+    - name: Download app package
+      get_url:
+        url: "{{ nexus_path }}/{{ file1 }}"
+        dest: "/tmp/{{ file1 }}"
+        mode: '0644'
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        force: yes
+        validate_certs: no
+
+    - name: Download config package
+      get_url:
+        url: "{{ nexus_path }}/{{ file2 }}"
+        dest: "/tmp/{{ file2 }}"
+        mode: '0644'
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        force: yes
+        validate_certs: no
+
+    - name: Extract app package
+      unarchive:
+        src: "/tmp/{{ file1 }}"
+        dest: "/opt/myapp/versions/{{ version_id }}"
+        remote_src: yes
+      when: file1 is defined
+
+    - name: Run post-extract steps for app package
+      shell: "echo 'Post-processing app package...'"
+      when: file1 is defined
+
+    - name: Extract config package
+      unarchive:
+        src: "/tmp/{{ file2 }}"
+        dest: "/etc/myapp/configs/{{ version_id }}"
+        remote_src: yes
+      when: file2 is defined
+
+    - name: Run post-extract steps for config package
+      shell: "echo 'Reloading app with new configs...'"
+      when: file2 is defined
