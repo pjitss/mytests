@@ -16,6 +16,13 @@
     state: directory
     mode: '0755'
 
+- name: List /opt/myapp/versions
+  shell: ls -l /opt/myapp/versions
+  register: list_versions
+
+- debug:
+    var: list_versions.stdout_lines
+
 - name: Download package from Nexus
   get_url:
     url: "{{ nexus_path }}/{{ file }}"
