@@ -3,3 +3,4 @@ nexus_path: 'http://192.168.0.142:8081/repository/jits_repo/'
 nexus_username: 'admin'
 nexus_password: 'redhat'
 upload_source_path_lin: '/home/jits/nexus_upload'
+file_list: "{{ file_name.split(',') }}"
