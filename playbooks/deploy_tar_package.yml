@@ -2,9 +2,13 @@
   set_fact:
     this_version: "{{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
     dest_path: >-
-      {% if 'frontend' in file %}/opt/myapp/versions/{{ this_version }}
-      {% elif 'backend' in file %}/etc/myapp/configs/{{ this_version }}
-      {% else %}/tmp/unknown{% endif %}
+      {% if 'frontend' in file %}
+      /opt/myapp/versions/{{ this_version }}
+      {% elif 'backend' in file %}
+      /etc/myapp/configs/{{ this_version }}
+      {% else %}
+      /tmp/unknown
+      {% endif %}
 
 - name: Show extracted version
   debug:
