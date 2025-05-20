@@ -5,7 +5,7 @@
 - name: Set destination path
   set_fact:
     dest_path: >-
-      {% if 'frontend' in file %}/opt/myapp/versions/{{ this_version | trim }}{% elif 'backend' in file %}/etc/myapp/configs/{{ this_version | trim }}{% else %}/tmp/unknown{% endif %}
+      {% if 'frontend' in file %}/opt/myapp/versions/{{ this_version | replace('.', '') }}{% elif 'backend' in file %}/etc/myapp/configs/{{ this_version | replace('.', '') }}{% else %}/tmp/unknown{% endif %}
 
 - name: Show dest_path being created
   debug:
