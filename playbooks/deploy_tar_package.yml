@@ -10,6 +10,11 @@
         /tmp/unknown
       {% endif %}
 
+- name: Show extracted version
+  debug:
+    msg: "file={{ file }}, this_version={{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
+
+
 - name: Show dest_path being created
   debug:
     msg: "dest_path is: {{ dest_path }}"
