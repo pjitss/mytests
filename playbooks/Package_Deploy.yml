@@ -1,6 +1,7 @@
 - name: Deploy each tar.gz package
   hosts: "{{ COMP }}"
   gather_facts: false
+  become: yes
   vars_files:
     - "../vars/common.var"
 
