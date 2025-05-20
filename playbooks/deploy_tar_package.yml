@@ -4,12 +4,12 @@
 
 - name: Extract version and set destination path
   set_fact:
-    this_version: "{{ item | regex_search('([0-9]+(?:\\.[0-9]+)+)', '\\1') }}"
+    this_version: "{{ (item | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
     dest_path: >-
       {% if 'frontend' in item %}
-        /opt/myapp/versions/{{ item | regex_search('([0-9]+(?:\\.[0-9]+)+)', '\\1') }}
+        /opt/myapp/versions/{{ (item | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}
       {% elif 'backend' in item %}
-        /etc/myapp/configs/{{ item | regex_search('([0-9]+(?:\\.[0-9]+)+)', '\\1') }}
+        /etc/myapp/configs/{{ (item | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}
       {% else %}
         /tmp/unknown
       {% endif %}
