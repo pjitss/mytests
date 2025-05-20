@@ -1,3 +1,6 @@
+- name: Prepare file version and destination
+  set_fact:
+    file_list: "{{ file_name.split(',') }}"
 
 - name: Extract version and set destination path
   set_fact:
@@ -13,31 +16,32 @@
   loop: "{{ file_list }}"
   register: version_and_path
 
-- name: Deploy each file
-  block:
-    - name: Ensure version directory exists
-      file:
-        path: "{{ item.dest_path }}"
-        state: directory
-        mode: '0755'
+- name: Ensure version directory exists
+  file:
+    path: "{{ item.dest_path }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ version_and_path.results }}"
 
-    - name: Download package from Nexus
-      get_url:
-        url: "{{ nexus_path }}/{{ item.item }}"
-        dest: "/tmp/{{ item.item }}"
-        mode: '0644'
-        force: yes
-        url_username: "{{ nexus_username }}"
-        url_password: "{{ nexus_password }}"
-        validate_certs: no
+- name: Download package from Nexus
+  get_url:
+    url: "{{ nexus_path }}/{{ item.item }}"
+    dest: "/tmp/{{ item.item }}"
+    mode: '0644'
+    force: yes
+    url_username: "{{ nexus_username }}"
+    url_password: "{{ nexus_password }}"
+    validate_certs: no
+  loop: "{{ version_and_path.results }}"
 
-    - name: Extract the tar.gz package
-      unarchive:
-        src: "/tmp/{{ item.item }}"
-        dest: "{{ item.dest_path }}"
-        remote_src: yes
+- name: Extract the tar.gz package
+  unarchive:
+    src: "/tmp/{{ item.item }}"
+    dest: "{{ item.dest_path }}"
+    remote_src: yes
+  loop: "{{ version_and_path.results }}"
 
-    - name: Print deployment info
-      debug:
-        msg: "Deployed {{ item.item }} to {{ item.dest_path }}"
+- name: Print deployment info
+  debug:
+    msg: "Deployed {{ item.item }} to {{ item.dest_path }}"
   loop: "{{ version_and_path.results }}"
