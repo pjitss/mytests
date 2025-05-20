@@ -10,6 +10,10 @@
         /tmp/unknown
       {% endif %}
 
+- name: Show dest_path being created
+  debug:
+    msg: "dest_path is: {{ dest_path }}"
+
 - name: Ensure version directory exists
   file:
     path: "{{ dest_path }}"
