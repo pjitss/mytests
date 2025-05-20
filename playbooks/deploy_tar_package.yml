@@ -3,9 +3,9 @@
   set_fact:
     this_version: "{{ item | regex_search('([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') }}"
     dest_path: >-
-      {% if 'app' in item %}
+      {% if 'frontend' in item %}
         /opt/myapp/versions/{{ item | regex_search('([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') }}
-      {% elif 'config' in item %}
+      {% elif 'backend' in item %}
         /etc/myapp/configs/{{ item | regex_search('([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') }}
       {% else %}
         /tmp/unknown
