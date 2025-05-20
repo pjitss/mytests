@@ -16,7 +16,7 @@
 
     - name: Check if file exists in Nexus
       shell: |
-        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ nexus_path }}/{{ item }}
+        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ nexus_path }}{{ item }}
       register: artifact_status
       ignore_errors: true
       loop: "{{ file_name.split(',') }}"
