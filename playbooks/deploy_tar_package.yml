@@ -1,0 +1,52 @@
+- name: Deploy each tar.gz package to its extracted version and destination
+  hosts: "{{ COMP }}"
+  gather_facts: false
+  vars_files:
+    - "../vars/common.var"
+
+  vars:
+    file_list: "{{ file_name.split(',') }}"
+
+  tasks:
+    - name: Extract version and set destination path
+      set_fact:
+        this_version: "{{ item | regex_search('([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') }}"
+        dest_path: >-
+          {% if 'app' in item %}
+            /opt/myapp/versions/{{ item | regex_search('([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') }}
+          {% elif 'config' in item %}
+            /etc/myapp/configs/{{ item | regex_search('([0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') }}
+          {% else %}
+            /tmp/unknown
+          {% endif %}
+      loop: "{{ file_list }}"
+      register: version_and_path
+
+    - name: Deploy each file
+      block:
+        - name: Ensure version directory exists
+          file:
+            path: "{{ item.dest_path }}"
+            state: directory
+            mode: '0755'
+
+        - name: Download package from Nexus
+          get_url:
+            url: "{{ nexus_path }}/{{ item.item }}"
+            dest: "/tmp/{{ item.item }}"
+            mode: '0644'
+            force: yes
+            url_username: "{{ nexus_username }}"
+            url_password: "{{ nexus_password }}"
+            validate_certs: no
+
+        - name: Extract the tar.gz package
+          unarchive:
+            src: "/tmp/{{ item.item }}"
+            dest: "{{ item.dest_path }}"
+            remote_src: yes
+
+        - name: Print deployment info
+          debug:
+            msg: "Deployed {{ item.item }} to {{ item.dest_path }}"
+      loop: "{{ version_and_path.results }}"
