@@ -54,22 +54,20 @@
     msg: "Deployed {{ file }} to {{ dest_path }}"
 
 # Assume this_version already set
-- name: Get previous FFFBST version (excluding current)
-  shell: >
-    grep '^export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile |
-    awk -F'-' '{print $2}' |
-    grep -v '{{ this_version | replace(".", "") }}' |
-    tail -n 1
+- name: Capture previous active FFFBST version (before removing lines)
+  shell: |
+    grep '^export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ this_version | replace(".", "") }}' | tail -n 1
   register: prev_version_raw
   changed_when: false
   failed_when: false
-  when: "'frontend' in file"
+  when: "'logs' in file"
 
-- name: Set prev_version fact
+- name: Set prev_version fact (may be empty)
   set_fact:
     prev_version: "{{ prev_version_raw.stdout }}"
-  when: "'frontend' in file"
+  when: "'logs' in file"
 
+# 2. Remove all lines for FFFBST
 - name: Remove all FFFBST export lines (commented and uncommented)
   lineinfile:
     path: /home/tomss/.bash_profile
@@ -79,8 +77,9 @@
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'frontend' in file"
+  when: "'logs' in file"
 
+# 3. Add previous version as commented (if exists and different from current)
 - name: Add previous FFFBST as commented line (if found and not current version)
   lineinfile:
     path: /home/tomss/.bash_profile
@@ -91,11 +90,12 @@
     group: tomss
     mode: '0644'
   when: >
-    'frontend' in file
+    'logs' in file
     and prev_version is defined
     and prev_version != (this_version | replace('.', ''))
-    and prev_version != ""
+    and prev_version | length > 0
 
+# 4. Add current version as active line
 - name: Add current FFFBST export line
   lineinfile:
     path: /home/tomss/.bash_profile
@@ -105,5 +105,6 @@
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'frontend' in file"
+  when: "'logs' in file"
+
 
