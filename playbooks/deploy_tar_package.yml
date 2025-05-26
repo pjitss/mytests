@@ -54,9 +54,9 @@
     msg: "Deployed {{ file }} to {{ dest_path }}"
 
 # Assume this_version already set
-- name: Capture previous active FFFBST version (before removing lines)
+- name: Capture previous FFFBST version (commented or not, excluding current)
   shell: |
-    grep '^export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ this_version | replace(".", "") }}' | tail -n 1
+    grep '^#\?export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ this_version | replace(".", "") }}' | tail -n 1
   register: prev_version_raw
   changed_when: false
   failed_when: false
