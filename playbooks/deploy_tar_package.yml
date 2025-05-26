@@ -52,3 +52,58 @@
 - name: Print deployment info
   debug:
     msg: "Deployed {{ file }} to {{ dest_path }}"
+
+# Assume this_version already set
+- name: Get previous FFFBST version (excluding current)
+  shell: >
+    grep '^export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile |
+    awk -F'-' '{print $2}' |
+    grep -v '{{ this_version | replace(".", "") }}' |
+    tail -n 1
+  register: prev_version_raw
+  changed_when: false
+  failed_when: false
+  when: "'frontend' in file"
+
+- name: Set prev_version fact
+  set_fact:
+    prev_version: "{{ prev_version_raw.stdout }}"
+  when: "'frontend' in file"
+
+- name: Remove all FFFBST export lines (commented and uncommented)
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    regexp: '^#?export FFFBST=.*'
+    state: absent
+    backup: yes
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  when: "'frontend' in file"
+
+- name: Add previous FFFBST as commented line (if found and not current version)
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    line: "#export FFFBST=$GHK/fffbst-{{ prev_version }}"
+    insertafter: EOF
+    state: present
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  when: >
+    'frontend' in file
+    and prev_version is defined
+    and prev_version != (this_version | replace('.', ''))
+    and prev_version != ""
+
+- name: Add current FFFBST export line
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    line: "export FFFBST=$GHK/fffbst-{{ this_version | replace('.', '') }}"
+    insertafter: EOF
+    state: present
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  when: "'frontend' in file"
+
