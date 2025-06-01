@@ -18,3 +18,5 @@ tmpdir: "/tmp/fskpackages"
 filter_dir: '/fskfilter/fsk'
 
 ldap_user: 'ldapuser1'
+ldap_user_search: 'ldapusersearch1'
+ldap_role_base: 'ldaprolebase1'
