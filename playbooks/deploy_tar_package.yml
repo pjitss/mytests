@@ -183,7 +183,7 @@
 
 - name: Remove old FOF entries from bash profile
   lineinfile:
-    path: /home/toms/.bash_profile
+    path: /home/tomss/.bash_profile
     regexp: '^export FOF_(NTB|SFX|MCDD|CTL_NTB|CTL_SFX|CTL_MCDD)='
     state: absent
     backup: yes
