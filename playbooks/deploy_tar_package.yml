@@ -4,8 +4,7 @@
 
 - name: Set destination path
   set_fact:
-    dest_path: >-
-      {% if 'OFAC' in file %}/fskfilter/fsk/fffbin-{{ ofac_version | trim }}{% elif 'FOF64' in file %}/fskfilter/fsk/{{ fof64_version | trim }}{% else %}/tmp/unknown{% endif %}
+    dest_path: "{% if 'OFAC' in file %}/fskfilter/fsk/fffbin-{{ ofac_version | trim }}{% elif 'FOF64' in file %}/fskfilter/fsk/{{ fof64_version | trim }}{% else %}/tmp/unknown{% endif %}"
         
 #- name: verify the dest path
 #  debug:
