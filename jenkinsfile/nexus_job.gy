@@ -4,7 +4,9 @@ properties([
         string(defaultValue: '', name: 'FILENAMES'),
         string(defaultValue: 'PR', name: 'ENVTYPE'),
         string(defaultValue: 'jits', name: 'branch'),
-        string(defaultValue: '', name: 'TASK')
+        string(defaultValue: '', name: 'TASK'),
+        string(defaultValue: '', name: 'OFAC_VERS'),
+        string(defaultValue: '', name: 'FOF64_VERS')
     ])
 ])
 
