@@ -187,8 +187,8 @@
     regexp: '^export FOF_(NTB|SFX|MCDD|CTL_NTB|CTL_SFX|CTL_MCDD)='
     state: absent
     backup: yes
-    owner: toms
-    group: toms
+    owner: tomss
+    group: tomss
     mode: '0644'
   when: "'FOF64' in file"
 
