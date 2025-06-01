@@ -5,7 +5,8 @@ properties([
         string(defaultValue: '', name: 'ENVTYPE'),
         string(defaultValue: 'jits', name: 'branch'),
         string(defaultValue: '', name: 'TASK'),
-        string(defaultValue: '', name: 'Version')
+        string(defaultValue: '', name: 'OFAC_VERS'),
+        string(defaultValue: '', name: 'FOF64_VERS')
     ])
 ])
 
