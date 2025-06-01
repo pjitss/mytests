@@ -146,7 +146,7 @@
     }}
   args:
     executable: /bin/bash
-    when: "'FOF64' in file"
+  when: "'FOF64' in file"
 
 - name: Create new FOF directories withew version
   file:
