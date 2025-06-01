@@ -33,7 +33,7 @@
 - name: Download package from Nexus
   get_url:
     url: "{{ nexus_path }}{{ file }}"
-    dest: "/tmp/{{ file }}"
+    dest: "{{ tmpdir }}/{{ file }}"
     mode: '0644'
     force: yes
     url_username: "{{ nexus_username }}"
