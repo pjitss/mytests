@@ -1,3 +1,7 @@
+- name: Show raw ofac_version and its length
+  debug:
+    msg: "ofac_version='{{ ofac_version }}' length={{ ofac_version | length }}"
+
 - name: Set destination path
   set_fact:
     dest_path: >-
@@ -7,9 +11,17 @@
 #  debug:
 #    msg: "dest_path is: '{{ dest_path }}'"
 
+- name: Show raw ofac_version and its length
+  debug:
+    msg: "ofac_version='{{ ofac_version }}' length={{ ofac_version | length }}"
+
 - name: verify the dest path
   debug:
     msg: "dest_path is: {{ dest_path }}"
+
+- name: Show raw ofac_version and its length
+  debug:
+    msg: "ofac_version='{{ ofac_version }}' length={{ ofac_version | length }}"
 
 - name: Ensure version directory exists
   file:
