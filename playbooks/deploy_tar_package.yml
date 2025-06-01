@@ -69,7 +69,7 @@
 
 - name: Capture previous FFFBIN version (commented or not, excluding current)
   shell: |
-    grep '^#\?export FFFBIN=\$GHK/FFFBIN-' /home/tomss/.bash_profile | 
+    grep '^#\?export FFFBIN=\$FSK/FFFBIN-' /home/tomss/.bash_profile | 
     awk -F'-' '{print $2}' | 
     grep -v '{{ ofac_version | 
     replace(".", "") }}' | 
@@ -98,7 +98,7 @@
 - name: Comment out previous version lines
   lineinfile:
     path: /home/tomss/.bash_profile
-    line: "#export FFFBIN=$GHK/FFFBIN-{{ prev_fffbin_version }}"
+    line: "#export FFFBIN=$FSK/FFFBIN-{{ prev_fffbin_version }}"
     insertafter: EOF
     state: present
     owner: tomss
