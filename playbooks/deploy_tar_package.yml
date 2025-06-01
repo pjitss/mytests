@@ -68,16 +68,15 @@
 ###---ofac version update---###
 
 - name: Capture previous FFFBIN version (commented or not, excluding current)
-  shell: |
+  shell: >
     grep '^#\?export FFFBIN=\$FSK/FFFBIN-' /home/tomss/.bash_profile | 
     awk -F'-' '{print $2}' | 
-    grep -v '{{ ofac_version | 
-    replace(".", "") }}' | 
+    grep -v '{{ ofac_version | replace(".", "") }}' | 
     tail -n 1
   register: prev_version
   changed_when: false
   failed_when: false
-  when: "'ofac' in file"
+  when: "'OFAC' in file"
 
 - name: Set the prev_version
   set_fact:
