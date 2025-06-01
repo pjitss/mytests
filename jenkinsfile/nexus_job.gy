@@ -1,8 +1,8 @@
 properties([
     parameters([
-        string(defaultValue: '', name: 'COMP'),
+        string(defaultValue: 'nexus', name: 'COMP'),
         string(defaultValue: '', name: 'FILENAMES'),
-        string(defaultValue: '', name: 'ENVTYPE'),
+        string(defaultValue: 'PR', name: 'ENVTYPE'),
         string(defaultValue: 'jits', name: 'branch'),
         string(defaultValue: '', name: 'TASK'),
         string(defaultValue: '', name: 'OFAC_VERS'),
