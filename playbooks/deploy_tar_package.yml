@@ -1,22 +1,19 @@
-- name: Extract version from filename
-  set_fact:
-    this_version: "{{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
-
 - name: Set destination path
   set_fact:
     dest_path: >-
-      {% if 'frontend' in file %}/opt/myapp/versions/{{ this_version | replace('.', '') }}{% elif 'backend' in file %}/opt/myapp/configs/{{ this_version | replace('.', '') }}{% else %}/tmp/unknown{% endif %}
+      {% if 'OFAC' in file %}
+        /opt/myapp/versions/{{ ofac_version }}
+      {% elif 'FOF64' in file %}
+        /opt/myapp/configs/{{ fof64_version }}
+      {% else %}
+        /tmp/unknown
+      {% endif %}
 
-- name: Show dest_path being created
+- name: verify the dest path
   debug:
     msg: "dest_path is: '{{ dest_path }}'"
 
-- name: Show extracted version
-  debug:
-    msg: "file={{ file }}, this_version={{ (file | regex_search('([0-9]+(?:\\.[0-9]+)+)')) }}"
-
-
-- name: Show dest_path being created
+- name: verify the dest path
   debug:
     msg: "dest_path is: {{ dest_path }}"
 
@@ -26,12 +23,18 @@
     state: directory
     mode: '0755'
 
-- name: List /opt/myapp/versions
-  shell: ls -l /opt/myapp/versions
-  register: list_versions
+- name: List directories
+  shell: ls -l {{ dest_path | dirname }}
+  register: list_dirs
 
 - debug:
-    var: list_versions.stdout_lines
+    var: list_dirs.stdout_lines
+
+- name: Ensude  temp dir exists
+  file:
+    path: "{{ tmpdir }}"
+    state: directory
+    mode: '0755'
 
 - name: Download package from Nexus
   get_url:
@@ -41,70 +44,160 @@
     force: yes
     url_username: "{{ nexus_username }}"
     url_password: "{{ nexus_password }}"
-    validate_certs: no
+    validate_certs: false
 
 - name: Extract the tar.gz package
   unarchive:
-    src: "/tmp/{{ file }}"
+    src: "{{ tmpdir }}/{{ file }}"
     dest: "{{ dest_path }}"
     remote_src: yes
+
+- name: verify if there is another tar file
+  find:
+    paths: "{{ dest_path }}"
+    patterns: "*.tar"
+    recurse: yes
+  register: tar_file
+
+- name: Extract inner tar file (if found)
+  unarchive:
+    src: "{{ item.path }}"
+    dest: "{{ dest_path }}"
+    remote_src: yes
+  loop: "{{ tar_file.files }}"
+  when: tar_file.matched > 0 
 
 - name: Print deployment info
   debug:
     msg: "Deployed {{ file }} to {{ dest_path }}"
 
-# Assume this_version already set
-- name: Capture previous FFFBST version (commented or not, excluding current)
+###---ofac version update---###
+
+- name: Capture previous FFFBIN version (commented or not, excluding current)
   shell: |
-    grep '^#\?export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ this_version | replace(".", "") }}' | tail -n 1
-  register: prev_version_raw
+    grep '^#\?export FFFBIN=\$GHK/FFFBIN-' /home/tomss/.bash_profile | 
+    awk -F'-' '{print $2}' | 
+    grep -v '{{ ofac_version | 
+    replace(".", "") }}' | 
+    tail -n 1
+  register: prev_version
   changed_when: false
   failed_when: false
-  when: "'frontend' in file"
+  when: "'ofac' in file"
 
-- name: Set prev_version fact (may be empty)
+- name: Set the prev_version
   set_fact:
-    prev_version: "{{ prev_version_raw.stdout }}"
-  when: "'frontend' in file"
+    prev_fffbin_version: "{{ prev_version.stdout }}"
+  when: "'OFAC' in file"
 
-# 2. Remove all lines for FFFBST
-- name: Remove all FFFBST export lines (commented and uncommented)
+- name: Remove all old FFFBIN export lines
   lineinfile:
     path: /home/tomss/.bash_profile
-    regexp: '^#?export FFFBST=.*'
+    regexp: '^#?export FFFBIN=.*'
     state: absent
     backup: yes
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'frontend' in file"
+  when: "'OFAC' in file"
 
-# 3. Add previous version as commented (if exists and different from current)
-- name: Add previous FFFBST as commented line (if found and not current version)
+- name: Comment out previous version lines
   lineinfile:
     path: /home/tomss/.bash_profile
-    line: "#export FFFBST=$GHK/fffbst-{{ prev_version }}"
+    line: "#export FFFBIN=$GHK/FFFBIN-{{ prev_fffbin_version }}"
     insertafter: EOF
     state: present
     owner: tomss
     group: tomss
     mode: '0644'
   when: >
-    'frontend' in file
-    and prev_version is defined
-    and prev_version != (this_version | replace('.', ''))
-    and prev_version | length > 0
+    'OFAC' in file
+    and prev_fffbin_version is defined
+    and prev_fffbin_version != (ofac_version | replace('.', ''))
+    and prev_fffbin_version | length > 0
 
-# 4. Add current version as active line
-- name: Add current FFFBST export line
+- name: Add FFFBIN export line with current version
   lineinfile:
     path: /home/tomss/.bash_profile
-    line: "export FFFBST=$GHK/fffbst-{{ this_version | replace('.', '') }}"
+    line: "export FFFBIN=$GHK/FFFBIN-{{ ofac_version | replace('.', '') }}"
     insertafter: EOF
     state: present
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'frontend' in file"
+  when: "'OFAC' in file"
+
+# ---------- BEGIN: FOF DIR BACKUP & CREATION FOR OFAC PACKAGE ----------
+
+- name: Find all FOF-* directories
+  find:
+    paths: "{{ filter_dir }}"
+    patterns: "FOF-*"
+    file_type: directory
+    use_regex: false
+  register: fof_dirs
+  when: "'FOF64' in file"
+
+- name: Set deploy_date
+  set_fact:
+    deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+  when: "'FOF64' in file"
+
+- name: Backup FOF directories matching version pattern
+  shell: mv "{{ item.path }}" "{{ item.path }}.{{ deploy_date }}"
+  loop: >-
+    {{
+      fof_dirs.files
+      | selectattr('path', 'search', 'FOF-(NTB|SFX|MCDD)-[0-9]+-[0-9]+-[0-9]+$')
+      | list
+    }}
+  args:
+    executable: /bin/bash
+    when: "'FOF64' in file"
+
+- name: Create new FOF directories withew version
+  file:
+    path: "{{ filter_dir }}/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "FOF-NTB-{{ fof64_version }}"
+    - "FOF-SFX-{{ fof64_version }}"
+    - "FOF-MCDD-{{ fof64_version }}"
+  when: "'FOF64' in file"
+
+- name: Extract tar content inside each new FOF directory
+  unarchive:
+    src: "/tmp/{{ file }}"
+    dest: "/opt/myapps/ofac/{{ item }}"
+    remote_src: yes
+  loop:
+    - "FOF-NTB-{{ fof64_version }}"
+    - "FOF-SFX-{{ fof64_version }}"
+    - "FOF-MCDD-{{ fof64_version }}"
+  when: "'OFAC' in file"
+
+- name: Update .bash_profile for new FOF variables
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    backrefs: yes
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  loop:
+    - { regexp: '^export FOF_NTB=.*$',      line: 'export FOF_NTB=$PSK/FOF-NTB-{{ fof64_version }}' }
+    - { regexp: '^export FOF_SFX=.*$',      line: 'export FOF_SFX=$PSK/FOF-SFX-{{ fof64_version }}' }
+    - { regexp: '^export FOF_MCDD=.*$',     line: 'export FOF_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}' }
+    - { regexp: '^export FOF_CTL_NTB=.*$',  line: 'export FOF_CTL_NTB=$PSK/FOF-NTB-{{ fof64_version }}' }
+    - { regexp: '^export FOF_CTL_SFX=.*$',  line: 'export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version }}' }
+    - { regexp: '^export FOF_CTL_MCDD=.*$', line: 'export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}' }
+  when: "'OFAC' in file"
+
+# ---------- END: FOF DIR BACKUP & CREATION FOR OFAC PACKAGE ----------
+
+# --------- FFFBIN LOGIC (for OFAC) ---------
 
 
