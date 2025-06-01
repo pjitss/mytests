@@ -1,14 +1,8 @@
 - name: Set destination path
   set_fact:
     dest_path: >-
-      {% if 'OFAC' in file %}
-        /opt/myapp/versions/{{ ofac_version }}
-      {% elif 'FOF64' in file %}
-        /opt/myapp/configs/{{ fof64_version }}
-      {% else %}
-        /tmp/unknown
-      {% endif %}
-
+      {% if 'OFAC' in file %}/opt/myapp/versions/{{ ofac_version }}{% elif 'FOF64' in file %}/opt/myapp/configs/{{ fof64_version }}{% else %}/tmp/unknown{% endif %}
+        
 - name: verify the dest path
   debug:
     msg: "dest_path is: '{{ dest_path }}'"
@@ -168,33 +162,43 @@
 
 - name: Extract tar content inside each new FOF directory
   unarchive:
-    src: "/tmp/{{ file }}"
-    dest: "/opt/myapps/ofac/{{ item }}"
+    src: "{{ tmpdir }}/{{ file }}"
+    dest: "{{ filter_dir }}/{{ item }}"
     remote_src: yes
   loop:
     - "FOF-NTB-{{ fof64_version }}"
     - "FOF-SFX-{{ fof64_version }}"
     - "FOF-MCDD-{{ fof64_version }}"
-  when: "'OFAC' in file"
+  when: "'FOF64' in file"
+
+- name: Remove old FOF entries from bash profile
+  lineinfile:
+    path: /home/toms/.bash_profile
+    regexp: '^export FOF_(NTB|SFX|MCDD|CTL_NTB|CTL_SFX|CTL_MCDD)='
+    state: absent
+    backup: yes
+    owner: toms
+    group: toms
+    mode: '0644'
+  when: "'FOF64' in file"
 
 - name: Update .bash_profile for new FOF variables
   lineinfile:
     path: /home/tomss/.bash_profile
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
+    line: "{{ item }}"
     state: present
-    backrefs: yes
+    insertafter: EOF
     owner: tomss
     group: tomss
     mode: '0644'
   loop:
-    - { regexp: '^export FOF_NTB=.*$',      line: 'export FOF_NTB=$PSK/FOF-NTB-{{ fof64_version }}' }
-    - { regexp: '^export FOF_SFX=.*$',      line: 'export FOF_SFX=$PSK/FOF-SFX-{{ fof64_version }}' }
-    - { regexp: '^export FOF_MCDD=.*$',     line: 'export FOF_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}' }
-    - { regexp: '^export FOF_CTL_NTB=.*$',  line: 'export FOF_CTL_NTB=$PSK/FOF-NTB-{{ fof64_version }}' }
-    - { regexp: '^export FOF_CTL_SFX=.*$',  line: 'export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version }}' }
-    - { regexp: '^export FOF_CTL_MCDD=.*$', line: 'export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}' }
-  when: "'OFAC' in file"
+    - "export FOF_NTB=$PSK/FOF-NTB-{{ fof64_version }}"
+    - "export FOF_SFX=$PSK/FOF-SFX-{{ fof64_version }}"
+    - "export FOF_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}"
+    - "export FOF_CTL_NTB=$PSK/FOF-NTB-{{ fof64_version }}"
+    - "export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version }}"
+    - "export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}"
+  when: "'FOF64' in file"
 
 # ---------- END: FOF DIR BACKUP & CREATION FOR OFAC PACKAGE ----------
 

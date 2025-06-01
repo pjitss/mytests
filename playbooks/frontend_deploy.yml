@@ -1,0 +1,99 @@
+---
+- name: Java webapp deployment (single war zip)
+  hosts: "{{ COMP }}"
+  become: yes
+  vars_files:
+    - "../vars/main.yml"    # for LDAP vars, etc.
+
+  tasks:
+    # Step 1: Unzip to temp and copy war to webapps as myapp.war
+    - name: Ensure temp deploy directory exists
+      file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Unzip provided ZIP file to temp
+      unarchive:
+        src: "{{ input_zip }}"
+        dest: "{{ deploy_dir }}"
+        remote_src: yes
+
+    - name: Copy jitsapp-5310.war to myapp.war in temp (for further use)
+      copy:
+        src: "{{ deploy_dir }}/{{ war_name }}"
+        dest: "{{ deploy_dir }}/{{ myapp_war }}"
+        mode: '0644'
+
+    # Step 1 (continued): Unzip/copy war to temp for yml seeding
+    - name: Ensure war extract directory exists
+      file:
+        path: "{{ war_extract_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Unarchive war file for modification
+      unarchive:
+        src: "{{ deploy_dir }}/{{ war_name }}"
+        dest: "{{ war_extract_dir }}"
+        remote_src: yes
+
+    - name: Template application.yml inside WEB-INF/classes
+      template:
+        src: app.yml.j2
+        dest: "{{ war_extract_dir }}/WEB-INF/classes/application.yml"
+
+    - name: Repack edited war as jitsapp.war in temp folder
+      archive:
+        path: "{{ war_extract_dir }}"
+        dest: "{{ deploy_dir }}/{{ jitsapp_war }}"
+        format: zip
+
+    # Step 2: Run shutdown.sh in bin
+    - name: Stop Tomcat
+      command: ./shutdown.sh
+      args:
+        chdir: "{{ bin_dir }}"
+      ignore_errors: yes
+
+    # Step 3: Backup or rename existing wars in webapps
+    - name: Set deploy_date fact
+      set_fact:
+        deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+
+    - name: Backup any existing war files
+      shell: |
+        for f in {{ myapp_war }} {{ jitsapp_war }}; do
+          if [ -f {{ app_dir }}/$f ]; then
+            mv {{ app_dir }}/$f {{ app_dir }}/$f.{{ deploy_date }}
+          fi
+        done
+      args:
+        executable: /bin/bash
+
+    # Step 4: Copy unedited as myapp.war and edited as jitsapp.war
+    - name: Copy original war as myapp.war
+      copy:
+        src: "{{ deploy_dir }}/{{ war_name }}"
+        dest: "{{ app_dir }}/{{ myapp_war }}"
+        mode: '0644'
+
+    - name: Copy edited (yml-seeded) war as jitsapp.war
+      copy:
+        src: "{{ deploy_dir }}/{{ jitsapp_war }}"
+        dest: "{{ app_dir }}/{{ jitsapp_war }}"
+        mode: '0644'
+
+    # Step 5: Start Tomcat
+    - name: Start Tomcat
+      command: ./startup.sh
+      args:
+        chdir: "{{ bin_dir }}"
+
+    # Optionally list deployed wars for verification
+    - name: List deployed wars
+      shell: ls -l {{ app_dir }}
+      register: war_listing
+
+    - debug:
+        var: war_listing.stdout_lines

@@ -1,53 +1,170 @@
-- name: Deploy multiple packages with custom steps
-  hosts: "{{ COMP }}"
-  gather_facts: false
-  vars_files:
-    - vars/common.vars
+- name: Set destination path (use user input version)
+  set_fact:
+    dest_path: >-
+      {% if 'frontend' in file %}
+        /opt/myapp/versions/{{ frontend_version }}
+      {% elif 'backend' in file %}
+        /opt/myapp/configs/{{ backend_version }}
+      {% else %}
+        /tmp/unknown
+      {% endif %}
 
-  vars:
-    file1: "{{ file_name1 }}"
-    file2: "{{ file_name2 }}"
-    version_id: "{{ version_id }}"
+- name: Show dest_path being created
+  debug:
+    msg: "dest_path is: '{{ dest_path }}'"
 
-  tasks:
-    - name: Download app package
-      get_url:
-        url: "{{ nexus_path }}/{{ file1 }}"
-        dest: "/tmp/{{ file1 }}"
-        mode: '0644'
-        url_username: "{{ nexus_username }}"
-        url_password: "{{ nexus_password }}"
-        force: yes
-        validate_certs: no
+- name: Ensure version directory exists
+  file:
+    path: "{{ dest_path }}"
+    state: directory
+    mode: '0755'
 
-    - name: Download config package
-      get_url:
-        url: "{{ nexus_path }}/{{ file2 }}"
-        dest: "/tmp/{{ file2 }}"
-        mode: '0644'
-        url_username: "{{ nexus_username }}"
-        url_password: "{{ nexus_password }}"
-        force: yes
-        validate_certs: no
+- name: List version/config directories (optional, for debug)
+  shell: ls -l {{ dest_path | dirname }}
+  register: list_versions
 
-    - name: Extract app package
-      unarchive:
-        src: "/tmp/{{ file1 }}"
-        dest: "/opt/myapp/versions/{{ version_id }}"
-        remote_src: yes
-      when: file1 is defined
+- debug:
+    var: list_versions.stdout_lines
 
-    - name: Run post-extract steps for app package
-      shell: "echo 'Post-processing app package...'"
-      when: file1 is defined
+- name: Download package from Nexus
+  get_url:
+    url: "{{ nexus_path }}{{ file }}"
+    dest: "/tmp/{{ file }}"
+    mode: '0644'
+    force: yes
+    url_username: "{{ nexus_username }}"
+    url_password: "{{ nexus_password }}"
+    validate_certs: no
 
-    - name: Extract config package
-      unarchive:
-        src: "/tmp/{{ file2 }}"
-        dest: "/etc/myapp/configs/{{ version_id }}"
-        remote_src: yes
-      when: file2 is defined
+- name: Extract the tar.gz package
+  unarchive:
+    src: "/tmp/{{ file }}"
+    dest: "{{ dest_path }}"
+    remote_src: yes
 
-    - name: Run post-extract steps for config package
-      shell: "echo 'Reloading app with new configs...'"
-      when: file2 is defined
+- name: Print deployment info
+  debug:
+    msg: "Deployed {{ file }} to {{ dest_path }}"
+
+# ---------- BEGIN: POP DIR BACKUP & CREATION FOR FRONTEND PACKAGE ----------
+
+- name: Find all POP-* directories in /opt/myapps/frontend
+  find:
+    paths: /opt/myapps/frontend
+    patterns: "POP-*"
+    file_type: directory
+    use_regex: false
+  register: pop_dirs
+  when: "'frontend' in file"
+
+- name: Set deploy_date (for POP backups)
+  set_fact:
+    deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+  when: "'frontend' in file"
+
+- name: Backup POP directories matching version pattern
+  shell: mv "{{ item.path }}" "{{ item.path }}.{{ deploy_date }}"
+  loop: >-
+    {{
+      pop_dirs.files
+      | selectattr('path', 'search', 'POP-(NTB|SFX|MCDD)-[0-9]+-[0-9]+-[0-9]+$')
+      | list
+    }}
+  args:
+    executable: /bin/bash
+  when: "'frontend' in file and pop_dirs is defined and pop_dirs.files | length > 0"
+
+- name: Create new POP directories for the new version
+  file:
+    path: "/opt/myapps/frontend/{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "POP-NTB-{{ frontend_version }}"
+    - "POP-SFX-{{ frontend_version }}"
+    - "POP-MCDD-{{ frontend_version }}"
+  when: "'frontend' in file"
+
+- name: Extract tar content inside each new POP directory
+  unarchive:
+    src: "/tmp/{{ file }}"
+    dest: "/opt/myapps/frontend/{{ item }}"
+    remote_src: yes
+  loop:
+    - "POP-NTB-{{ frontend_version }}"
+    - "POP-SFX-{{ frontend_version }}"
+    - "POP-MCDD-{{ frontend_version }}"
+  when: "'frontend' in file"
+
+- name: Update .bash_profile for new POP variables
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    backrefs: yes
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  loop:
+    - { regexp: '^export POP_NTB=.*$',      line: 'export POP_NTB=$PSK/POP-NTB-{{ frontend_version }}' }
+    - { regexp: '^export POP_SFX=.*$',      line: 'export POP_SFX=$PSK/POP-SFX-{{ frontend_version }}' }
+    - { regexp: '^export POP_MCDD=.*$',     line: 'export POP_MCDD=$PSK/POP-MCDD-{{ frontend_version }}' }
+    - { regexp: '^export POP_CTL_NTB=.*$',  line: 'export POP_CTL_NTB=$PSK/POP-NTB-{{ frontend_version }}' }
+    - { regexp: '^export POP_CTL_SFX=.*$',  line: 'export POP_CTL_SFX=$PSK/POP-SFX-{{ frontend_version }}' }
+    - { regexp: '^export POP_CTL_MCDD=.*$', line: 'export POP_CTL_MCDD=$PSK/POP-MCDD-{{ frontend_version }}' }
+  when: "'frontend' in file"
+
+# ---------- END: POP DIR BACKUP & CREATION FOR FRONTEND PACKAGE ----------
+
+# --------- FFFBST LOGIC (for frontend) ---------
+
+- name: Capture previous FFFBST version (commented or not, excluding current)
+  shell: |
+    grep '^#\?export FFFBST=\$GHK/fffbst-' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ frontend_version | replace(".", "") }}' | tail -n 1
+  register: prev_version_raw
+  changed_when: false
+  failed_when: false
+  when: "'frontend' in file"
+
+- name: Set prev_version fact (may be empty)
+  set_fact:
+    prev_version: "{{ prev_version_raw.stdout }}"
+  when: "'frontend' in file"
+
+- name: Remove all FFFBST export lines (commented and uncommented)
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    regexp: '^#?export FFFBST=.*'
+    state: absent
+    backup: yes
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  when: "'frontend' in file"
+
+- name: Add previous FFFBST as commented line (if found and not current version)
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    line: "#export FFFBST=$GHK/fffbst-{{ prev_version }}"
+    insertafter: EOF
+    state: present
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  when: >
+    'frontend' in file
+    and prev_version is defined
+    and prev_version != (frontend_version | replace('.', ''))
+    and prev_version | length > 0
+
+- name: Add current FFFBST export line
+  lineinfile:
+    path: /home/tomss/.bash_profile
+    line: "export FFFBST=$GHK/fffbst-{{ frontend_version | replace('.', '') }}"
+    insertafter: EOF
+    state: present
+    owner: tomss
+    group: tomss
+    mode: '0644'
+  when: "'frontend' in file"

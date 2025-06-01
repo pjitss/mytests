@@ -3,3 +3,18 @@ nexus_path: 'http://192.168.0.145:8081/repository/jits_repo/'
 nexus_username: 'admin'
 nexus_password: 'redhat'
 upload_source_path_lin: '/home/jits/nexus_upload'
+
+
+input_zip: "/tmp/jitsapp-5310.zip"
+war_name: "jitsapp-5310.war"
+deploy_dir: "/tmp/wars"
+war_extract_dir: "/tmp/wars/jitsapp"
+app_dir: "/app/jits/tomcat/webapps"
+bin_dir: "/app/jits/tomcat/bin"
+jitsapp_war: "jitsapp.war"
+myapp_war: "myapp.war"
+
+tmpdir: "/tmp/fskpackages"
+filter_dir: '/fskfilter/fsk'
+
+ldap_user: 'ldapuser1'
