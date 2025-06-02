@@ -2,10 +2,12 @@
 - name: Run Oracle SQL script on Windows server
   hosts: oracle_windows
   gather_facts: no
+  vars_files:
+    - "../vars/common.var"
   tasks:
     - name: Run SQL*Plus with script
       win_shell: |
-        sqlplus / as sysdba @C:\Users\oracle\Desktop\create_test_user.sql
+        sqlplus {{ db_username }}/{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_sid }} @{{ script_path }}
       register: sqlplus_output
 
     - name: Show output
