@@ -25,5 +25,5 @@ db_username: testuser
 db_password: TestPassword1
 db_host: 192.168.0.133
 db_port: 1521
-db_sid: orcl
+db_sid: orclpdb
 script_path: "C:\\Users\\oracle\\Desktop\\create_test_user.sql"
