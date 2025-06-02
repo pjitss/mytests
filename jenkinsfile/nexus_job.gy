@@ -33,7 +33,7 @@ node {
             stage("Deploy ${file.trim()}") {
                 ansiblePlaybook(
                     playbook: "playbooks/Package_Deploy.yml",
-                    extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e ofac_version=${OFAC_VERS} -e fof64_version=${FOF64_VERS} -e task=deploy"
+                    extras: "-vv -i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e ofac_version=${OFAC_VERS} -e fof64_version=${FOF64_VERS} -e task=deploy"
                 )
             }
         }
