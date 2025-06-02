@@ -37,6 +37,15 @@ node {
                 )
             }
         }
+    } else if (TASK == 'dba') {
+        for (file in files) {
+            stage("dba ${file.trim()}") {
+                ansiblePlaybook(
+                    playbook: "playbooks/dbjob.yml",
+                    extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=dba"
+                )
+            }
+        }
     } else {
         error("Unknown TASK: ${TASK}. Valid values: upload, deploy")
     }
