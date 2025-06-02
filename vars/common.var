@@ -27,3 +27,5 @@ db_host: 192.168.0.129
 db_port: 1521
 db_sid: orcl
 script_path: C:\Users\oracle\Desktop\create_test_user.sql
+oracle_username: oracle
+oracle_password: Redhat@123
