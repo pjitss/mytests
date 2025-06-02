@@ -7,9 +7,7 @@
   tasks:
     - name: Run SQL*Plus with script
       win_shell: |
-        $password = ConvertTo-SecureString '{{ oracle_password }}' -AsPlainText -Force
-        $credential = New-Object System.Management.Automation.PSCredential ('{{ oracle_username }}', $password)
-        Start-Process -FilePath "sqlplus.exe" -ArgumentList "{{ db_username }}/{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_sid }} @{{ script_path }}" -Credential $credential -Wait
+        sqlplus {{ db_username }}/{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_sid }} @{{ script_path }}
       register: sqlplus_output
 
     - name: Show output
