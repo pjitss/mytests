@@ -26,4 +26,4 @@ db_password: NewPassword123
 db_host: 192.168.0.133
 db_port: 1521
 db_sid: orclpdb
-script_path: "C:\\Users\\oracle\\Desktop\\user_cr.sql"
+script_path: "C:\\Users\\oracle\\Desktop\\create_test_user.sql"
