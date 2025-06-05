@@ -16,9 +16,9 @@
         dest: "{{ script_path }}\\{{ item | trim }}"
       loop: "{{ sql_files }}"
 
-    - name: "Copy sql script files to DB host"
+    - name: "Copy sql script files to DB host inside master.sql"
       template:
-        src: master.sql.j2
+        src: ../master.sql.j2
         dest: "{{ script_path }}\\master.sql"
 
     - name: "Build master.sql from parameters"
