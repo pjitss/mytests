@@ -21,9 +21,10 @@ ldap_user: 'ldapuser1'
 ldap_user_search: 'ldapusersearch1'
 ldap_role_base: 'ldaprolebase1'
 
-db_username: sys
-db_password: NewPassword123
+db_username: pjitsdb
+db_password: pjitsdb123
 db_host: 192.168.0.133
 db_port: 1521
-db_sid: orclpdb
-script_path: "C:\\Users\\oracle\\Desktop\\create_test_user.sql"
+db_svc: JITSPDB
+#script_path: "C:\\Users\\oracle\\Desktop\\create_test_user.sql"
+script_path: "C:\Users\Administrator\Desktop\mysql_scrips"
