@@ -13,7 +13,7 @@
     - name: Copy all SQL files to the DB host
       copy:
         src: "files/sql/{{ item | trim }}"
-        dest: "/tmp/{{ item | trim }}"
+        dest: "{{ script_path }}\\{{ item | trim }}"
       loop: "{{ sql_files }}"
 
     - name: "Copy sql script files to DB host"
