@@ -26,5 +26,4 @@ db_password: pjitsdb123
 db_host: 192.168.0.133
 db_port: 1521
 db_svc: JITSPDB
-#script_path: "C:\\Users\\oracle\\Desktop\\create_test_user.sql"
-script_path: "C:\Users\Administrator\Desktop\mysql_scrips"
+script_path: "C:\\Users\\Administrator\\Desktop\\mysql_scrips"
