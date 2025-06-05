@@ -1,0 +1,8 @@
+{% set names = var_names.split(',') %}
+{% set values = var_values.split(' ') %}
+{% for i in range(names|length) %}
+DEFINE {{ names[i] }} = '{{ values[i] }}'
+{% endfor %}
+{% for file in file_names.split(',') %}
+@{{ file.strip() }}
+{% endfor %}
