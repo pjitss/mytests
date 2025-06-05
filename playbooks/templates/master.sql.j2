@@ -4,5 +4,5 @@
 DEFINE {{ names[i] }} = '{{ values[i] }}'
 {% endfor %}
 {% for file in file_names.split(',') %}
-@{{ file.strip() }}
+@{{ script_path }}\\{{ file | trim }}
 {% endfor %}
