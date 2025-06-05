@@ -7,7 +7,7 @@
   tasks:
     - name: Run SQL*Plus with script
       win_shell: |
-        sqlplus {{ db_username }}/{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_svc }} @{{ script_path }}\{{ file_name }} C:\oracle\tests\testlog1 jitsdba
+        sqlplus {{ db_username }}/{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_svc }} @{{ script_path }}\{{ file_name }} C:\oracle\tests\testlog2 jitsdba
       register: sqlplus_output
 
     - name: Show output
