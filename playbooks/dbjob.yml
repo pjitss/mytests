@@ -10,6 +10,16 @@
       set_fact:
         sql_files: "{{ file_names.split(',') }}"
 
+    - name: Remove old SQL files from script directory
+      win_file:
+        path: '{{ script_path }}'
+        state: absent
+
+    - name: Re-create the script directory
+      win_file:
+        path: '{{ script_path }}'
+        state: directory
+
     - name: Copy all SQL files to the DB host
       copy:
         src: "files/sql/{{ item | trim }}"
@@ -25,6 +35,16 @@
       template:
         src: master.sql.j2
         dest: "{{ script_path }}\\master.sql"
+
+    - name: Test Oracle connection before running main script
+      win_shell: |
+        echo "SELECT 1 FROM dual;" | sqlplus -s {{ db_username }}/{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_svc }}
+      register: test_conn
+
+    - name: Fail if DB connection test fails
+      fail:
+        msg: "Database connection failed: {{ test_conn.stdout }}"
+      when: "'ORA-' in test_conn.stdout or 'ERROR' in test_conn.stdout"
 
     - name: Run SQL*Plus with script
       win_shell: |

@@ -1,3 +1,6 @@
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+WHENEVER OSERROR EXIT 1
+
 {% set names = var_names.split(',') %}
 {% set values = var_values.split(',') %}
 {% for i in range(names|length) %}
