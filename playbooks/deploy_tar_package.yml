@@ -1,23 +1,24 @@
-- name: Set destination path
+- name: Set pkg_type and destination path
   set_fact:
-    dest_path: >-
-      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
-        /fskfilter/fsk/fffbin-{{ ofac_version | trim }}
-      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
-        /fskfilter/fsk/{{ fof64_version | trim }}
-      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
-        /fskfilter/fsk/conf
-      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}
-        /fskfilter/fsk/conf2
-      {% else %}
-        /tmp/unknown
+    pkg_type: >-
+      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %} OFAC
+      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %} FOF64
+      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %} filter_config
+      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %} filter_update
+      {% else %} UNKNOWN
       {% endif %}
-
+    dest_path: >-
+      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %} /fskfilter/fsk/fffbin-{{ ofac_version | trim }}
+      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %} /fskfilter/fsk/{{ fof64_version | trim }}
+      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %} /fskfilter/fsk/conf
+      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %} /fskfilter/fsk/conf2
+      {% else %} /tmp/unknown
+      {% endif %}
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
     msg: "Unknown package type for file {{ pkgfile }}. Check your filename and package_type_dest_paths mapping!"
-  when: pkg_type is not defined or dest_path is not defined
+  when: pkg_type == "UNKNOWN" or dest_path == "/tmp/unknown"
 
 - name: Print detected package type and destination
   debug:
