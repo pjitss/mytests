@@ -108,9 +108,9 @@
         - pkg_type | trim == "OFAC"
         - (item.path | basename) != ("fffbin-" + (ofac_version | replace('.', '')))
     
-    - name: Capture previous FFFBIN version
-      shell: >
-        grep '^export FFFBIN=' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ ofac_version | replace(".", "") }}' | tail -n 1
+    - name: Get all previous FFFBIN versions (including commented)
+      shell: |
+        grep '^#\?export FFFBIN=' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ ofac_version | replace(".", "") }}' | tail -n 1
       register: prev_version
       changed_when: false
       failed_when: false
@@ -121,10 +121,10 @@
         prev_fffbin_version: "{{ prev_version.stdout | trim }}"
       when: pkg_type | trim == "OFAC"
 
-    - name: Remove all FFFBIN export lines
+    - name: Remove all FFFBIN export lines (commented or not)
       lineinfile:
         path: /home/tomss/.bash_profile
-        regexp: '^export FFFBIN=.*'
+        regexp: '^#?export FFFBIN=.*'
         state: absent
         backup: yes
         owner: tomss
@@ -132,33 +132,20 @@
         mode: '0644'
       when: pkg_type | trim == "OFAC"
 
-    - name: Comment out previous version FFFBIN line
-      lineinfile:
+    - name: Add only previous (commented) and current (active) FFFBIN lines
+      blockinfile:
         path: /home/tomss/.bash_profile
-        line: "#export FFFBIN=$GHK/FFFBIN-{{ prev_fffbin_version }}"
+        marker: "# {mark} FFFBIN block managed by Ansible"
+        block: |
+          {% if prev_fffbin_version is defined and prev_fffbin_version|length > 0 and prev_fffbin_version != (ofac_version | replace('.', '')) %}
+          #export FFFBIN=$GHK/FFFBIN-{{ prev_fffbin_version }}
+          {% endif %}
+          export FFFBIN=$GHK/FFFBIN-{{ ofac_version | replace('.', '') }}
         insertafter: EOF
-        state: present
-        owner: tomss
-        group: tomss
-        mode: '0644'
-      when:
-        - pkg_type | trim == "OFAC"
-        - prev_fffbin_version is defined
-        - prev_fffbin_version | length > 0
-        - prev_fffbin_version != (ofac_version | replace('.', ''))
-
-    - name: Add FFFBIN export line with current version
-      lineinfile:
-        path: /home/tomss/.bash_profile
-        line: "export FFFBIN=$GHK/FFFBIN-{{ ofac_version | replace('.', '') }}"
-        insertafter: EOF
-        state: present
         owner: tomss
         group: tomss
         mode: '0644'
       when: pkg_type | trim == "OFAC"
-
-  when: pkg_type | trim == "OFAC"
 
 ###---FOF64 backup logic---###
 - block:
