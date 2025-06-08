@@ -85,8 +85,8 @@
 
 - name: Download cfg files from Nexus
   get_url:
-    url: "{{ nexus_path }}{{ file }}"
-    dest: "{{ tmpdir }}/{{ file }}"
+    url: "{{ nexus_path }}{{ pkgfile }}"
+    dest: "{{ tmpdir }}/{{ pkgfile }}"
     mode: '0644'
     force: yes
     url_username: "{{ nexus_username }}"
@@ -95,7 +95,7 @@
 
 - name: Extract the tar.gz package
   unarchive:
-    src: "{{ tmpdir }}/{{ file }}"
+    src: "{{ tmpdir }}/{{ pkgfile }}"
     dest: "{{ dest_path }}"
     remote_src: yes
 
@@ -108,12 +108,12 @@
   register: prev_version
   changed_when: false
   failed_when: false
-  when: "'OFAC' in file"
+  when: "'OFAC' in pkgfile"
 
 - name: Set the prev_version
   set_fact:
     prev_fffbin_version: "{{ prev_version.stdout }}"
-  when: "'OFAC' in file"
+  when: "'OFAC' in pkgfile"
 
 - name: Remove all old FFFBIN export lines
   lineinfile:
@@ -124,7 +124,7 @@
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'OFAC' in file"
+  when: "'OFAC' in pkgfile"
 
 - name: Comment out previous version lines
   lineinfile:
@@ -136,7 +136,7 @@
     group: tomss
     mode: '0644'
   when: >
-    'OFAC' in file
+    'OFAC' in pkgfile
     and prev_fffbin_version is defined
     and prev_fffbin_version != (ofac_version | replace('.', ''))
     and prev_fffbin_version | length > 0
@@ -150,7 +150,7 @@
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'OFAC' in file"
+  when: "'OFAC' in pkgfile"
 
 # ---------- BEGIN: FOF DIR BACKUP & CREATION FOR OFAC PACKAGE ----------
 
@@ -161,12 +161,12 @@
     file_type: directory
     use_regex: false
   register: fof_dirs
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 - name: Set deploy_date
   set_fact:
     deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 - name: Backup FOF directories matching version pattern
   shell: mv "{{ item.path }}" "{{ item.path }}.{{ deploy_date }}"
@@ -178,7 +178,7 @@
     }}
   args:
     executable: /bin/bash
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 - name: Create new FOF directories withew version
   file:
@@ -189,18 +189,18 @@
     - "FOF-NTB-{{ fof64_version }}"
     - "FOF-SFX-{{ fof64_version }}"
     - "FOF-MCDD-{{ fof64_version }}"
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 - name: Extract tar content inside each new FOF directory
   unarchive:
-    src: "{{ tmpdir }}/{{ file }}"
+    src: "{{ tmpdir }}/{{ pkgfile }}"
     dest: "{{ filter_dir }}/{{ item }}"
     remote_src: yes
   loop:
     - "FOF-NTB-{{ fof64_version }}"
     - "FOF-SFX-{{ fof64_version }}"
     - "FOF-MCDD-{{ fof64_version }}"
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 - name: Remove old FOF entries from bash profile
   lineinfile:
@@ -211,7 +211,7 @@
     owner: tomss
     group: tomss
     mode: '0644'
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 - name: Update .bash_profile for new FOF variables
   lineinfile:
@@ -229,7 +229,7 @@
     - "export FOF_CTL_NTB=$PSK/FOF-NTB-{{ fof64_version }}"
     - "export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version }}"
     - "export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}"
-  when: "'FOF64' in file"
+  when: "'FOF64' in pkgfile"
 
 # ---------- END: FOF DIR BACKUP & CREATION FOR OFAC PACKAGE ----------
 
