@@ -1,28 +1,25 @@
-- name: Detect package type and set dest_path
-  set_fact:
-    pkg_type: >-
-      {% for key in package_type_dest_paths.keys() %}
-      {% if key in file %}
-        {{ key }}
-      {% endif %}
-      {% endfor %}
-    dest_path: >-
-      {% for key in package_type_dest_paths.keys() %}
-      {% if key in file %}
-        {{ package_type_dest_paths[key] }}
-      {% endif %}
-      {% endfor %}
-
-- name: Print detected package type and destination
+- name: Show raw ofac_version and its length
   debug:
-    msg: "File '{{ file }}' detected as type '{{ pkg_type }}' will deploy to '{{ dest_path }}'"
+    msg: "ofac_version='{{ ofac_version }}' length={{ ofac_version | length }}"
 
-- name: Clean and re-create destination directory
-  file:
-    path: "{{ dest_path }}"
-    state: absent
+- name: Set destination path
+  set_fact:
+    dest_path: "{% if 'OFAC' in file %}/fskfilter/fsk/fffbin-{{ ofac_version | trim }}{% elif 'FOF64' in file %}/fskfilter/fsk/{{ fof64_version | trim }}{% else %}/tmp/unknown{% endif %}"
+        
 
-- name: Create destination directory
+- name: Show raw ofac_version and its length
+  debug:
+    msg: "ofac_version='{{ ofac_version }}' length={{ ofac_version | length }}"
+
+- name: verify the dest path
+  debug:
+    msg: "dest_path is: {{ dest_path }}"
+
+- name: Show raw ofac_version and its length
+  debug:
+    msg: "ofac_version='{{ ofac_version }}' length={{ ofac_version | length }}"
+
+- name: Ensure version directory exists
   file:
     path: "{{ dest_path }}"
     state: directory
@@ -35,7 +32,7 @@
 - debug:
     var: list_dirs.stdout_lines
 
-- name: Ensure  temp dir exists
+- name: Ensude  temp dir exists
   file:
     path: "{{ tmpdir }}"
     state: directory

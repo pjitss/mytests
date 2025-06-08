@@ -9,8 +9,8 @@
 
     - name: Check if filename extension is tar.gz
       fail:
-        msg: "package file '{{ item }}' does not have .tar.gz extension. Failing the pipeline."
-      when: item is not regex(".*\\.tar\\.gz$")
+        msg: "package file '{{ item }}' does not have .tar.gz or .zip extension. Failing the pipeline."
+      when: item is not regex(".*\\.(tar\\.gz|zip)$")
       loop: "{{ file_name.split(',') }}"
 
 
