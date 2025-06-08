@@ -33,13 +33,6 @@
     state: directory
     mode: '0755'
 
-- name: List directories
-  shell: ls -l {{ dest_path }}
-  register: list_dirs
-
-- debug:
-    var: list_dirs.stdout_lines
-
 - name: Ensure  temp dir exists
   file:
     path: "{{ tmpdir }}"
