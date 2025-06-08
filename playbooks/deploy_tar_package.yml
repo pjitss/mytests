@@ -247,8 +247,8 @@
 
 # ---- For FILTER_CONFIG and FILTER_UPDATE just deploy, nothing to backup ----
 
-- name: For FILTER_CONFIG and FILTER_UPDATE: Print deployment info
-  debug:
-    msg: "Deployed {{ pkgfile }} to {{ dest_path | trim }}"
-  when: pkg_type | trim in ['FILTER_CONFIG', 'FILTER_UPDATE']
+#- name: For FILTER_CONFIG and FILTER_UPDATE: Print deployment info#
+#  debug:
+#    msg: "Deployed {{ pkgfile }} to {{ dest_path | trim }}"
+#  when: pkg_type | trim in ['FILTER_CONFIG', 'FILTER_UPDATE']
 
