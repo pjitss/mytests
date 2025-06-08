@@ -1,20 +1,31 @@
+# deploy_tar_package.yml
+
 - name: Set pkg_type and destination path
   set_fact:
     pkg_type: >-
-      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}OFAC
-      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}FOF64
-      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}filter_config
-      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}filter_update
-      {% else %}UNKNOWN
+      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
+        OFAC
+      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
+        FOF64
+      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
+        FILTER_CONFIG
+      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}
+        FILTER_UPDATE
+      {% else %}
+        UNKNOWN
       {% endif %}
     dest_path: >-
-      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}/fskfilter/fsk/fffbin-{{ ofac_version | trim }}
-      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}/fskfilter/fsk/{{ fof64_version | trim }}
-      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}/fskfilter/fsk/conf
-      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}/fskfilter/fsk/conf2
-      {% else %}/tmp/unknown
+      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
+        /fskfilter/fsk/fffbin-{{ ofac_version | replace('.', '') | trim }}
+      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
+        /fskfilter/fsk/{{ fof64_version | trim }}
+      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
+        /fskfilter/fsk/conf
+      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}
+        /fskfilter/fsk/conf2
+      {% else %}
+        /tmp/unknown
       {% endif %}
-
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
@@ -27,16 +38,16 @@
 
 - name: Clean and re-create destination directory
   file:
-    path: "{{ dest_path }}"
+    path: "{{ dest_path | trim }}"
     state: absent
 
 - name: Create destination directory
   file:
-    path: "{{ dest_path }}"
+    path: "{{ dest_path | trim }}"
     state: directory
     mode: '0755'
 
-- name: Ensure  temp dir exists
+- name: Ensure temp dir exists
   file:
     path: "{{ tmpdir }}"
     state: directory
@@ -44,7 +55,7 @@
 
 - name: Download package from Nexus
   get_url:
-    url: "{{ package_type_nexus_paths[pkg_type | trim] }}{{ pkgfile }}"
+    url: "{{ package_type_nexus_paths[pkg_type | upper] }}{{ pkgfile }}"
     dest: "{{ tmpdir }}/{{ pkgfile }}"
     mode: '0644'
     force: yes
@@ -60,44 +71,22 @@
 - name: Extract the package (tar.gz or zip)
   unarchive:
     src: "{{ tmpdir }}/{{ pkgfile }}"
-    dest: "{{ dest_path }}"
+    dest: "{{ dest_path | trim }}"
     remote_src: yes
 
 - name: Find inner tar files (if any)
   find:
-    paths: "{{ dest_path }}"
+    paths: "{{ dest_path | trim }}"
     patterns: "*.tar"
     recurse: yes
   register: tar_file
 
-- name: Find inner tar files (if any)
-  find:
-    paths: "{{ dest_path }}"
-    patterns: "*.tar"
-    recurse: yes
-  register: tar_file 
-
 - name: Print deployment info
   debug:
-    msg: "Deployed {{ pkgfile }} to {{ dest_path }}"
+    msg: "Deployed {{ pkgfile }} to {{ dest_path | trim }}"
+
 
 ###---ofac version update---###
-
-- name: Download cfg files from Nexus
-  get_url:
-    url: "{{ package_type_nexus_paths[pkg_type | upper] }}{{ pkgfile }}"
-    dest: "{{ tmpdir }}/{{ pkgfile }}"
-    mode: '0644'
-    force: yes
-    url_username: "{{ nexus_username }}"
-    url_password: "{{ nexus_password }}"
-    validate_certs: false
-
-- name: Extract the tar.gz package
-  unarchive:
-    src: "{{ tmpdir }}/{{ pkgfile }}"
-    dest: "{{ dest_path }}"
-    remote_src: yes
 
 - name: Capture previous FFFBIN version (commented or not, excluding current)
   shell: >
