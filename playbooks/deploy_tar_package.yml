@@ -1,11 +1,17 @@
-- name: Set pkg_type and dest_path for {{ pkgfile }}
+- name: Detect package type and set dest_path
   set_fact:
-    pkg_type: "{{ key }}"
-    dest_path: "{{ package_type_dest_paths[key] }}"
-  loop: "{{ package_type_dest_paths.keys() | list }}"
-  loop_control:
-    loop_var: key
-  when: key in pkgfile | lower
+    pkg_type: >-
+      {% for key in package_type_dest_paths.keys() %}
+      {% if file.upper() is search(key.upper()) %}
+        {{ key }}
+      {% endif %}
+      {% endfor %}
+    dest_path: >-
+      {% for key in package_type_dest_paths.keys() %}
+      {% if file.upper() is search(key.upper()) %}
+        {{ package_type_dest_paths[key] }}
+      {% endif %}
+      {% endfor %}
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
