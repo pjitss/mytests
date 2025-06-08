@@ -77,12 +77,24 @@
 
 - name: Extract the package (tar.gz or zip)
   unarchive:
-    src: "{{ tmpdir | trim }}/{{ pkgfile }}"
+    src: "{{ tmpdir | trim }}/{{ pkgfile | trim }}"
     dest: "{{ dest_path | trim }}"
     remote_src: yes
-    owner: root
-    group: root
-  register: extract_result
+
+- name: Find inner tar files (if any)
+  find:
+    paths: "{{ dest_path | trim }}"
+    patterns: "*.tar"
+    recurse: yes
+  register: inner_tars
+
+- name: Extract any inner tar files found
+  unarchive:
+    src: "{{ item.path | trim }}"
+    dest: "{{ dest_path | trim }}"
+    remote_src: yes
+  loop: "{{ inner_tars.files }}"
+  when: inner_tars.matched > 0
 
 - name: Print deployment info
   debug:
