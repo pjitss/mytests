@@ -16,7 +16,7 @@
       {% endif %}
     dest_path: >-
       {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
-        /fskfilter/fsk/fffbin-{{ ofac_version | replace('.', '') | trim }}
+        /fskfilter/fsk/fffbin-{{ ofac_version | trim | replace('.', '') }}
       {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
         /fskfilter/fsk/{{ fof64_version | trim }}
       {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
@@ -26,6 +26,7 @@
       {% else %}
         /tmp/unknown
       {% endif %}
+
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
@@ -55,13 +56,14 @@
 
 - name: Download package from Nexus
   get_url:
-    url: "{{ package_type_nexus_paths[pkg_type | upper] }}{{ pkgfile }}"
-    dest: "{{ tmpdir }}/{{ pkgfile }}"
+    url: "{{ package_type_nexus_paths[pkg_type | trim | upper] }}{{ pkgfile | trim }}"
+    dest: "{{ tmpdir }}/{{ pkgfile | trim }}"
     mode: '0644'
     force: yes
     url_username: "{{ nexus_username }}"
     url_password: "{{ nexus_password }}"
     validate_certs: false
+
 
 - name: Check file extension (.tar.gz or .zip)
   fail:
