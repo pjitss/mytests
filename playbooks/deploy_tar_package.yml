@@ -1,17 +1,11 @@
 - name: Detect package type and set dest_path
   set_fact:
     pkg_type: >-
-      {% for key in package_type_dest_paths.keys() %}
-      {% if pkgfile.upper() is search(key.upper()) %}
-        {{ key }}
-      {% endif %}
-      {% endfor %}
+      {{ (package_type_dest_paths.keys() | select('search', pkgfile | upper) | list | first | default('UNKNOWN')) }}
     dest_path: >-
-      {% for key in package_type_dest_paths.keys() %}
-      {% if pkgfile.upper() is search(key.upper()) %}
-        {{ package_type_dest_paths[key] }}
-      {% endif %}
-      {% endfor %}
+      {{ (package_type_dest_paths | dict2items | selectattr('key', 'search', pkgfile | upper) | list | first).value
+        if (package_type_dest_paths.keys() | select('search', pkgfile | upper) | list | length > 0)
+        else 'UNKNOWN_PATH' }}
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
