@@ -1,11 +1,18 @@
-- name: Detect package type and set dest_path
+- name: Set destination path
   set_fact:
-    pkg_type: >-
-      {{ (package_type_dest_paths.keys() | select('search', pkgfile | upper) | list | first | default('UNKNOWN')) }}
     dest_path: >-
-      {{ (package_type_dest_paths | dict2items | selectattr('key', 'search', pkgfile | upper) | list | first).value
-        if (package_type_dest_paths.keys() | select('search', pkgfile | upper) | list | length > 0)
-        else 'UNKNOWN_PATH' }}
+      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
+        /fskfilter/fsk/fffbin-{{ ofac_version | trim }}
+      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
+        /fskfilter/fsk/{{ fof64_version | trim }}
+      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
+        /fskfilter/fsk/conf
+      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}
+        /fskfilter/fsk/conf2
+      {% else %}
+        /tmp/unknown
+      {% endif %}
+
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
