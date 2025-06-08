@@ -130,7 +130,7 @@
     - name: Add only previous (commented) and current (active) FFFBIN lines
       blockinfile:
         path: /home/tomss/.bash_profile
-        marker: "# {mark} FFFBIN block managed by Ansible"
+        marker: "# {mark} update FFFBIN version block"
         block: |
           {% if prev_fffbin_version is defined and prev_fffbin_version|length > 0 and prev_fffbin_version != (ofac_version | replace('.', '')) %}
           #export FFFBIN=$GHK/FFFBIN-{{ prev_fffbin_version }}
