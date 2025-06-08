@@ -36,7 +36,7 @@ main_sql: "master.sql"
 
 
 package_type_dest_paths:
-    OFAC_PATH: "/fskfilter/fsk/fffbin-{{ ofac_version | trim }}"
-    FOF64_PATH: "/fskfilter/fsk/{{ fof64_version | trim }}"
-    Filter_config_path: "/fskfilter/fsk/conf"
-    Filter_update_path2: "/fskfilter/fsk/conf2"
+    OFAC: "/fskfilter/fsk/fffbin-{{ ofac_version | trim }}"
+    FOF64: "/fskfilter/fsk/{{ fof64_version | trim }}"
+    filter_config: "/fskfilter/fsk/conf"
+    filter_update: "/fskfilter/fsk/conf2"
