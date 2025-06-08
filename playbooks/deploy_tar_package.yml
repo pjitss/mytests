@@ -1,3 +1,5 @@
+# deploy_tar_package.yml
+
 - name: Set pkg_type and destination path
   set_fact:
     pkg_type: >-
@@ -7,44 +9,52 @@
       {% elif 'filter_update' in pkgfile | lower %}FILTER_UPDATE
       {% else %}UNKNOWN{% endif %}
     dest_path: >-
-      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}/fskfilter/fsk/fffbin-{{ ofac_version | replace('.', '') }}
-      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}/fskfilter/fsk/{{ fof64_version | trim }}
-      {% elif 'filter_config' in pkgfile | lower %}/fskfilter/fsk/conf
-      {% elif 'filter_update' in pkgfile | lower %}/fskfilter/fsk/conf2
-      {% else %}/tmp/unknown{% endif %}
-
-- name: Print detected package type and destination
-  debug:
-    msg: "File '{{ pkgfile }}' detected as type '{{ pkg_type }}', will deploy to '{{ dest_path | trim }}'"
+      {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
+        /fskfilter/fsk/fffbin-{{ ofac_version | replace('.', '') }}
+      {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
+        /fskfilter/fsk/{{ fof64_version | trim }}
+      {% elif 'filter_config' in pkgfile | lower %}
+        /fskfilter/fsk/conf
+      {% elif 'filter_update' in pkgfile | lower %}
+        /fskfilter/fsk/conf2
+      {% else %}
+        /tmp/unknown
+      {% endif %}
 
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
-    msg: "Unknown package type for file {{ pkgfile }}. Check your filename and package_type_dest_paths mapping!"
-  when: pkg_type == "UNKNOWN" or dest_path == "/tmp/unknown"
+    msg: "Unknown package type for file {{ pkgfile }}. Check your filename or playbook logic!"
+  when: pkg_type | trim == "UNKNOWN" or dest_path | trim == "/tmp/unknown"
 
-# --- Backup any existing dest_path before deleting ---
-- name: Backup old dest_path if exists
-  shell: |
-    if [ -d "{{ dest_path | trim }}" ]; then mv "{{ dest_path | trim }}" "{{ dest_path | trim }}_backup_$(date +%Y%m%d%H%M%S)"; fi
-  args:
-    executable: /bin/bash
-  ignore_errors: yes
+- name: Print detected package type and destination
+  debug:
+    msg: "File '{{ pkgfile }}' detected as type '{{ pkg_type | trim }}', will deploy to '{{ dest_path | trim }}'"
 
-- name: Create destination directory
+- name: Clean previous destination dir if exists (OFAC/FOF64)
+  file:
+    path: "{{ dest_path | trim }}"
+    state: absent
+  when: pkg_type | trim in ['OFAC', 'FOF64', 'FILTER_CONFIG', 'FILTER_UPDATE']
+
+- name: Ensure destination directory exists and owned by correct user
   file:
     path: "{{ dest_path | trim }}"
     state: directory
-    mode: '0775'
+    mode: '0755'
+    owner: root
+    group: root
 
 - name: Ensure temp dir exists
   file:
     path: "{{ tmpdir | trim }}"
     state: directory
     mode: '0775'
+    owner: root
+    group: root
 
 - name: Download package from Nexus
   get_url:
-    url: "{{ package_type_nexus_paths[pkg_type] }}{{ pkgfile }}"
+    url: "{{ package_type_nexus_paths[pkg_type | trim] }}{{ pkgfile }}"
     dest: "{{ tmpdir | trim }}/{{ pkgfile }}"
     mode: '0644'
     force: yes
@@ -57,154 +67,183 @@
     msg: "Package file '{{ pkgfile }}' must have .tar.gz or .zip extension."
   when: pkgfile is not regex('.*\\.(tar\\.gz|zip)$')
 
+- name: Ensure destination dir exists before extraction
+  file:
+    path: "{{ dest_path | trim }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
 - name: Extract the package (tar.gz or zip)
   unarchive:
     src: "{{ tmpdir | trim }}/{{ pkgfile }}"
     dest: "{{ dest_path | trim }}"
     remote_src: yes
-
-- name: Find inner tar files (if any)
-  find:
-    paths: "{{ dest_path | trim }}"
-    patterns: "*.tar"
-    recurse: yes
-  register: tar_file
-
-- name: Extract inner tar file (if found)
-  unarchive:
-    src: "{{ item.path }}"
-    dest: "{{ dest_path | trim }}"
-    remote_src: yes
-  loop: "{{ tar_file.files }}"
-  when: tar_file.matched > 0
+    owner: root
+    group: root
+  register: extract_result
 
 - name: Print deployment info
   debug:
     msg: "Deployed {{ pkgfile }} to {{ dest_path | trim }}"
 
-# ======= OFAC Bash Profile Management =======
-- name: Capture previous FFFBIN version (commented or not, excluding current)
-  shell: |
-    grep '^#\?export FFFBIN=' /home/tomss/.bash_profile | \
-    awk -F'-' '{print $2}' | \
-    grep -v '{{ ofac_version | replace(".", "") }}' | \
-    tail -n 1
-  register: prev_version
-  changed_when: false
-  failed_when: false
-  when: pkg_type == "OFAC"
+###---OFAC FFFBIN backup & bash_profile update---###
+- block:
+    - name: Find existing fffbin-* directories (except new one)
+      find:
+        paths: "/fskfilter/fsk"
+        patterns: "fffbin-*"
+        file_type: directory
+      register: existing_fffbin
+      when: pkg_type | trim == "OFAC"
 
-- name: Set the prev_version
-  set_fact:
-    prev_fffbin_version: "{{ prev_version.stdout }}"
-  when: pkg_type == "OFAC"
+    - name: Move old fffbin-* directories to backup (except new)
+      shell: |
+        mv "{{ item.path }}" "{{ item.path }}_backup"
+      args:
+        executable: /bin/bash
+      loop: "{{ existing_fffbin.files }}"
+      when:
+        - pkg_type | trim == "OFAC"
+        - (item.path | basename) != ("fffbin-" + (ofac_version | replace('.', '')))
+    
+    - name: Capture previous FFFBIN version
+      shell: >
+        grep '^export FFFBIN=' /home/tomss/.bash_profile | awk -F'-' '{print $2}' | grep -v '{{ ofac_version | replace(".", "") }}' | tail -n 1
+      register: prev_version
+      changed_when: false
+      failed_when: false
+      when: pkg_type | trim == "OFAC"
 
-- name: Remove all old FFFBIN export lines
-  lineinfile:
-    path: /home/tomss/.bash_profile
-    regexp: '^#?export FFFBIN=.*'
-    state: absent
-    backup: yes
-    owner: tomss
-    group: tomss
-    mode: '0644'
-  when: pkg_type == "OFAC"
+    - name: Set the prev_version fact
+      set_fact:
+        prev_fffbin_version: "{{ prev_version.stdout | trim }}"
+      when: pkg_type | trim == "OFAC"
 
-- name: Comment out previous version lines
-  lineinfile:
-    path: /home/tomss/.bash_profile
-    line: "#export FFFBIN=$FSK/FFFBIN-{{ prev_fffbin_version }}"
-    insertafter: EOF
-    state: present
-    owner: tomss
-    group: tomss
-    mode: '0644'
-  when:
-    - pkg_type == "OFAC"
-    - prev_fffbin_version is defined
-    - prev_fffbin_version != (ofac_version | replace('.', ''))
-    - prev_fffbin_version | length > 0
+    - name: Remove all FFFBIN export lines
+      lineinfile:
+        path: /home/tomss/.bash_profile
+        regexp: '^export FFFBIN=.*'
+        state: absent
+        backup: yes
+        owner: tomss
+        group: tomss
+        mode: '0644'
+      when: pkg_type | trim == "OFAC"
 
-- name: Add FFFBIN export line with current version
-  lineinfile:
-    path: /home/tomss/.bash_profile
-    line: "export FFFBIN=$GHK/FFFBIN-{{ ofac_version | replace('.', '') }}"
-    insertafter: EOF
-    state: present
-    owner: tomss
-    group: tomss
-    mode: '0644'
-  when: pkg_type == "OFAC"
+    - name: Comment out previous version FFFBIN line
+      lineinfile:
+        path: /home/tomss/.bash_profile
+        line: "#export FFFBIN=$GHK/FFFBIN-{{ prev_fffbin_version }}"
+        insertafter: EOF
+        state: present
+        owner: tomss
+        group: tomss
+        mode: '0644'
+      when:
+        - pkg_type | trim == "OFAC"
+        - prev_fffbin_version is defined
+        - prev_fffbin_version | length > 0
+        - prev_fffbin_version != (ofac_version | replace('.', ''))
 
-# ======= FOF64 Directory Backup/Creation =======
-- name: Find all FOF-* directories
-  find:
-    paths: "{{ filter_dir | trim }}"
-    patterns: "FOF-*"
-    file_type: directory
-    use_regex: false
-  register: fof_dirs
-  when: pkg_type == "FOF64"
+    - name: Add FFFBIN export line with current version
+      lineinfile:
+        path: /home/tomss/.bash_profile
+        line: "export FFFBIN=$GHK/FFFBIN-{{ ofac_version | replace('.', '') }}"
+        insertafter: EOF
+        state: present
+        owner: tomss
+        group: tomss
+        mode: '0644'
+      when: pkg_type | trim == "OFAC"
 
-- name: Set deploy_date
-  set_fact:
-    deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-  when: pkg_type == "FOF64"
+  when: pkg_type | trim == "OFAC"
 
-- name: Backup FOF directories matching version pattern
-  shell: mv "{{ item.path }}" "{{ item.path }}_backup_{{ deploy_date }}"
-  args:
-    executable: /bin/bash
-  loop: "{{ fof_dirs.files }}"
-  when: pkg_type == "FOF64" and fof_dirs.files is defined and (fof_dirs.files | length > 0)
+###---FOF64 backup logic---###
+- block:
+    - name: Find all FOF-* directories
+      find:
+        paths: "/fskfilter/fsk"
+        patterns: "FOF-*"
+        file_type: directory
+      register: fof_dirs
+      when: pkg_type | trim == "FOF64"
 
-- name: Create new FOF directories with new version
-  file:
-    path: "{{ filter_dir | trim }}/{{ item }}"
-    state: directory
-    mode: '0775'
-  loop:
-    - "FOF-NTB-{{ fof64_version | trim }}"
-    - "FOF-SFX-{{ fof64_version | trim }}"
-    - "FOF-MCDD-{{ fof64_version | trim }}"
-  when: pkg_type == "FOF64"
+    - name: Set deploy_date fact
+      set_fact:
+        deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+      when: pkg_type | trim == "FOF64"
 
-- name: Extract tar content inside each new FOF directory
-  unarchive:
-    src: "{{ tmpdir | trim }}/{{ pkgfile }}"
-    dest: "{{ filter_dir | trim }}/{{ item }}"
-    remote_src: yes
-  loop:
-    - "FOF-NTB-{{ fof64_version | trim }}"
-    - "FOF-SFX-{{ fof64_version | trim }}"
-    - "FOF-MCDD-{{ fof64_version | trim }}"
-  when: pkg_type == "FOF64"
+    - name: Backup old FOF-* directories (not matching current version)
+      shell: |
+        mv "{{ item.path }}" "{{ item.path }}_backup"
+      args:
+        executable: /bin/bash
+      loop: "{{ fof_dirs.files }}"
+      when:
+        - pkg_type | trim == "FOF64"
+        - (item.path | basename) not in [
+            "FOF-NTB-{{ fof64_version }}",
+            "FOF-SFX-{{ fof64_version }}",
+            "FOF-MCDD-{{ fof64_version }}"
+          ]
 
-- name: Remove old FOF entries from bash profile
-  lineinfile:
-    path: /home/tomss/.bash_profile
-    regexp: '^export FOF_(NTB|SFX|MCDD|CTL_NTB|CTL_SFX|CTL_MCDD)='
-    state: absent
-    backup: yes
-    owner: tomss
-    group: tomss
-    mode: '0644'
-  when: pkg_type == "FOF64"
+    - name: Create new FOF directories with version
+      file:
+        path: "/fskfilter/fsk/{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+      loop:
+        - "FOF-NTB-{{ fof64_version }}"
+        - "FOF-SFX-{{ fof64_version }}"
+        - "FOF-MCDD-{{ fof64_version }}"
+      when: pkg_type | trim == "FOF64"
 
-- name: Update .bash_profile for new FOF variables
-  lineinfile:
-    path: /home/tomss/.bash_profile
-    line: "{{ item }}"
-    state: present
-    insertafter: EOF
-    owner: tomss
-    group: tomss
-    mode: '0644'
-  loop:
-    - "export FOF_NTB=$PSK/FOF-NTB-{{ fof64_version | trim }}"
-    - "export FOF_SFX=$PSK/FOF-SFX-{{ fof64_version | trim }}"
-    - "export FOF_MCDD=$PSK/FOF-MCDD-{{ fof64_version | trim }}"
-    - "export FOF_CTL_NTB=$PSK/FOF-NTB-{{ fof64_version | trim }}"
-    - "export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version | trim }}"
-    - "export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version | trim }}"
-  when: pkg_type == "FOF64"
+    - name: Extract tar content inside each new FOF directory
+      unarchive:
+        src: "{{ tmpdir | trim }}/{{ pkgfile }}"
+        dest: "/fskfilter/fsk/{{ item }}"
+        remote_src: yes
+        owner: root
+        group: root
+      loop:
+        - "FOF-NTB-{{ fof64_version }}"
+        - "FOF-SFX-{{ fof64_version }}"
+        - "FOF-MCDD-{{ fof64_version }}"
+      when: pkg_type | trim == "FOF64"
+
+    - name: Remove old FOF entries from bash profile
+      lineinfile:
+        path: /home/tomss/.bash_profile
+        regexp: '^export FOF_(NTB|SFX|MCDD|CTL_NTB|CTL_SFX|CTL_MCDD)='
+        state: absent
+        backup: yes
+        owner: tomss
+        group: tomss
+        mode: '0644'
+      when: pkg_type | trim == "FOF64"
+
+    - name: Update .bash_profile for new FOF variables
+      lineinfile:
+        path: /home/tomss/.bash_profile
+        line: "{{ item }}"
+        state: present
+        insertafter: EOF
+        owner: tomss
+        group: tomss
+        mode: '0644'
+      loop:
+        - "export FOF_NTB=$PSK/FOF-NTB-{{ fof64_version }}"
+        - "export FOF_SFX=$PSK/FOF-SFX-{{ fof64_version }}"
+        - "export FOF_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}"
+        - "export FOF_CTL_NTB=$PSK/FOF-NTB-{{ fof64_version }}"
+        - "export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version }}"
+        - "export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}"
+      when: pkg_type | trim == "FOF64"
+
+  when: pkg_type | trim == "FOF64"
+
+# ----- END OF FILE -----
