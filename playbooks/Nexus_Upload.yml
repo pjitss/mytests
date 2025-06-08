@@ -39,13 +39,13 @@
       ignore_errors: true
       loop: "{{ file_paths.results }}"
 
-    - name: Fail if file already exists
-      fail:
-        msg: "{{ item.item.item }} already uploaded to Nexus ({{ item.item.ansible_facts.current_nexus_path }})"
-      loop: "{{ artifact_status.results }}"
-      when:
-        - task == "upload"
-        - item.stdout is search("200 OK")
+    - name: Check if file already exists in Nexus (per directory)
+      shell: |
+        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ item.ansible_facts.current_nexus_path | trim }}{{ item.item }}
+      register: artifact_status
+      failed_when: "'200 OK' in artifact_status.stdout"
+      loop: "{{ file_paths.results }}"
+
 
     - name: Upload each file to its Nexus directory based on file type
       shell: |
