@@ -85,7 +85,7 @@
 
 - name: Download cfg files from Nexus
   get_url:
-    url: "{{ nexus_path }}{{ pkgfile }}"
+    url: "{{ package_type_nexus_paths[pkg_type | upper] }}{{ pkgfile }}"
     dest: "{{ tmpdir }}/{{ pkgfile }}"
     mode: '0644'
     force: yes
