@@ -1,5 +1,5 @@
 ####
-nexus_path: 'http://192.168.0.129:8081/repository/jits_repo/'
+nexus_path: 'http://192.168.0.145:8081/repository/jits_repo/'
 nexus_username: 'admin'
 nexus_password: 'redhat'
 upload_source_path_lin: '/home/jits/nexus_upload'
