@@ -34,18 +34,17 @@
 
     - name: Check if file already exists in Nexus (per directory)
       shell: |
-        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ item.ansible_facts.current_nexus_path }}{{ item.item }}
+        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ item.ansible_facts.current_nexus_path | trim }}{{ item.item }}
       register: artifact_status
       ignore_errors: true
       loop: "{{ file_paths.results }}"
 
-    - name: Check if file already exists in Nexus (per directory)
-      shell: |
-        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ item.ansible_facts.current_nexus_path | trim }}{{ item.item }}
-      register: artifact_status
-      failed_when: "'200 OK' in artifact_status.stdout"
-      loop: "{{ file_paths.results }}"
-
+    - name: Fail if file already exists
+      fail:
+        msg: "File {{ item.item }} already exists in Nexus. Upload forbidden to prevent overwriting."
+      when:
+        - "'200 OK' in item.stdout"
+      loop: "{{ artifact_status.results }}"
 
     - name: Upload each file to its Nexus directory based on file type
       shell: |
