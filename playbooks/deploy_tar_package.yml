@@ -1,21 +1,20 @@
-- name: Detect package type and set dest_path
+- name: Set pkg_type and dest_path for {{ pkgfile }}
   set_fact:
-    pkg_type: >-
-      {% for key in package_type_dest_paths.keys() %}
-      {% if key in file %}
-        {{ key }}
-      {% endif %}
-      {% endfor %}
-    dest_path: >-
-      {% for key in package_type_dest_paths.keys() %}
-      {% if key in file %}
-        {{ package_type_dest_paths[key] }}
-      {% endif %}
-      {% endfor %}
+    pkg_type: "{{ key }}"
+    dest_path: "{{ package_type_dest_paths[key] }}"
+  loop: "{{ package_type_dest_paths.keys() | list }}"
+  loop_control:
+    loop_var: key
+  when: key in pkgfile | lower
+
+- name: Fail if no matching pkg_type found for {{ pkgfile }}
+  fail:
+    msg: "Unknown package type for file {{ pkgfile }}. Check your filename and package_type_dest_paths mapping!"
+  when: pkg_type is not defined or dest_path is not defined
 
 - name: Print detected package type and destination
   debug:
-    msg: "File '{{ file }}' detected as type '{{ pkg_type }}' will deploy to '{{ dest_path }}'"
+    msg: "File '{{ pkgfile }}' detected as type '{{ pkg_type }}', will deploy to '{{ dest_path }}'"
 
 - name: Clean and re-create destination directory
   file:
@@ -43,38 +42,42 @@
 
 - name: Download package from Nexus
   get_url:
-    url: "{{ nexus_path }}{{ file }}"
-    dest: "{{ tmpdir }}/{{ file }}"
+    url: "{{ package_type_nexus_paths[pkg_type] }}{{ pkgfile }}"
+    dest: "{{ tmpdir }}/{{ pkgfile }}"
     mode: '0644'
     force: yes
     url_username: "{{ nexus_username }}"
     url_password: "{{ nexus_password }}"
     validate_certs: false
 
-- name: Extract the tar.gz package
+- name: Check file extension (.tar.gz or .zip)
+  fail:
+    msg: "Package file '{{ pkgfile }}' must have .tar.gz or .zip extension."
+  when: pkgfile is not regex('.*\\.(tar\\.gz|zip)$')
+
+- name: Extract the package (tar.gz or zip)
   unarchive:
-    src: "{{ tmpdir }}/{{ file }}"
+    src: "{{ tmpdir }}/{{ pkgfile }}"
     dest: "{{ dest_path }}"
     remote_src: yes
 
-- name: verify if there is another tar file
+- name: Find inner tar files (if any)
   find:
     paths: "{{ dest_path }}"
     patterns: "*.tar"
     recurse: yes
   register: tar_file
 
-- name: Extract inner tar file (if found)
-  unarchive:
-    src: "{{ item.path }}"
-    dest: "{{ dest_path }}"
-    remote_src: yes
-  loop: "{{ tar_file.files }}"
-  when: tar_file.matched > 0 
+- name: Find inner tar files (if any)
+  find:
+    paths: "{{ dest_path }}"
+    patterns: "*.tar"
+    recurse: yes
+  register: tar_file 
 
 - name: Print deployment info
   debug:
-    msg: "Deployed {{ file }} to {{ dest_path }}"
+    msg: "Deployed {{ pkgfile }} to {{ dest_path }}"
 
 ###---ofac version update---###
 
