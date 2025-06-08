@@ -7,86 +7,34 @@
         OFAC
       {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
         FOF64
-      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
+      {% elif 'filter_config' in pkgfile | lower %}
         FILTER_CONFIG
-      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}
+      {% elif 'filter_update' in pkgfile | lower %}
         FILTER_UPDATE
       {% else %}
         UNKNOWN
       {% endif %}
     dest_path: >-
       {% if 'OFAC' in pkgfile or 'ofac' in pkgfile %}
-        /fskfilter/fsk/fffbin-{{ ofac_version | trim | replace('.', '') }}
+        /fskfilter/fsk/fffbin-{{ ofac_version | replace('.', '') }}
       {% elif 'FOF64' in pkgfile or 'fof64' in pkgfile %}
-        /fskfilter/fsk/{{ fof64_version | trim }}
-      {% elif 'filter_config' in pkgfile or 'FILTER_CONFIG' in pkgfile %}
+        /fskfilter/fsk/{{ fof64_version }}
+      {% elif 'filter_config' in pkgfile | lower %}
         /fskfilter/fsk/conf
-      {% elif 'filter_update' in pkgfile or 'FILTER_UPDATE' in pkgfile %}
+      {% elif 'filter_update' in pkgfile | lower %}
         /fskfilter/fsk/conf2
       {% else %}
         /tmp/unknown
       {% endif %}
 
-
 - name: Fail if no matching pkg_type found for {{ pkgfile }}
   fail:
-    msg: "Unknown package type for file {{ pkgfile }}. Check your filename and package_type_dest_paths mapping!"
+    msg: "Unknown package type for file {{ pkgfile }}. Check your filename and mapping!"
   when: pkg_type == "UNKNOWN" or dest_path == "/tmp/unknown"
 
 - name: Print detected package type and destination
   debug:
     msg: "File '{{ pkgfile }}' detected as type '{{ pkg_type }}', will deploy to '{{ dest_path }}'"
-
-- name: Clean and re-create destination directory
-  file:
-    path: "{{ dest_path | trim }}"
-    state: absent
-
-- name: Create destination directory
-  file:
-    path: "{{ dest_path | trim }}"
-    state: directory
-    mode: '0755'
-
-- name: Ensure temp dir exists
-  file:
-    path: "{{ tmpdir }}"
-    state: directory
-    mode: '0755'
-
-- name: Download package from Nexus
-  get_url:
-    url: "{{ package_type_nexus_paths[pkg_type | trim | upper] }}{{ pkgfile | trim }}"
-    dest: "{{ tmpdir }}/{{ pkgfile | trim }}"
-    mode: '0644'
-    force: yes
-    url_username: "{{ nexus_username }}"
-    url_password: "{{ nexus_password }}"
-    validate_certs: false
-
-
-- name: Check file extension (.tar.gz or .zip)
-  fail:
-    msg: "Package file '{{ pkgfile }}' must have .tar.gz or .zip extension."
-  when: pkgfile is not regex('.*\\.(tar\\.gz|zip)$')
-
-- name: Extract the package (tar.gz or zip)
-  unarchive:
-    src: "{{ tmpdir }}/{{ pkgfile }}"
-    dest: "{{ dest_path | trim }}"
-    remote_src: yes
-
-- name: Find inner tar files (if any)
-  find:
-    paths: "{{ dest_path | trim }}"
-    patterns: "*.tar"
-    recurse: yes
-  register: tar_file
-
-- name: Print deployment info
-  debug:
-    msg: "Deployed {{ pkgfile }} to {{ dest_path | trim }}"
-
 
 ########## FFFBIN DIRECTORY BACKUP (OFAC) ##########
 - name: Backup existing fffbin-* directories except current
@@ -135,8 +83,8 @@
 ########## Download & Extract ##########
 - name: Download package from Nexus
   get_url:
-    url: "{{ package_type_nexus_paths[pkg_type] }}{{ pkgfile }}"
-    dest: "{{ tmpdir }}/{{ pkgfile }}"
+    url: "{{ package_type_nexus_paths[pkg_type | trim | upper] }}{{ pkgfile | trim }}"
+    dest: "{{ tmpdir }}/{{ pkgfile | trim }}"
     mode: '0644'
     force: yes
     url_username: "{{ nexus_username }}"
@@ -225,7 +173,3 @@
     - "export FOF_CTL_SFX=$PSK/FOF-SFX-{{ fof64_version }}"
     - "export FOF_CTL_MCDD=$PSK/FOF-MCDD-{{ fof64_version }}"
   when: pkg_type == 'FOF64'
-
-# --------- FFFBIN LOGIC (for OFAC) ---------
-
-
