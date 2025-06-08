@@ -102,7 +102,7 @@
 
 - name: Set deploy_date
   set_fact:
-    deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+    deploy_date: "{{ lookup('pipe', 'date +%Y%m%d') }}"
   when: pkg_type | trim in ["OFAC", "FOF64"]
 
 ###---OFAC FFFBIN backup & bash_profile update---###
