@@ -2,13 +2,13 @@
   set_fact:
     pkg_type: >-
       {% for key in package_type_dest_paths.keys() %}
-      {% if item.upper() is search(key.upper()) %}
+      {% if pkgfile.upper() is search(key.upper()) %}
         {{ key }}
       {% endif %}
       {% endfor %}
     dest_path: >-
       {% for key in package_type_dest_paths.keys() %}
-      {% if item.upper() is search(key.upper()) %}
+      {% if pkgfile.upper() is search(key.upper()) %}
         {{ package_type_dest_paths[key] }}
       {% endif %}
       {% endfor %}
