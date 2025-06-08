@@ -7,8 +7,8 @@ upload_source_path_lin: '/home/jits/nexus_upload'
 package_type_nexus_paths:
     OFAC: "http://192.168.0.145:8081/repository/jits_repo/ofac/"
     FOF64: "http://192.168.0.145:8081/repository/jits_repo/fof64/"
-    filter_config: "http://192.168.0.145:8081/repository/jits_repo/filter_config/"
-    filter_update: "http://192.168.0.145:8081/repository/jits_repo/filter_update/"
+    FILTER_CONFIG: "http://192.168.0.145:8081/repository/jits_repo/filter_config/"
+    FILTER_UPDATE: "http://192.168.0.145:8081/repository/jits_repo/filter_update/"
 
 input_zip: "/tmp/jitsapp-5310.zip"
 war_name: "jitsapp-5310.war"
