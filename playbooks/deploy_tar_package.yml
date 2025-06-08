@@ -88,6 +88,11 @@
   debug:
     msg: "Deployed {{ pkgfile }} to {{ dest_path | trim }}"
 
+- name: Set deploy_date
+  set_fact:
+    deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
+  when: pkg_type | trim in ["OFAC", "FOF64"]
+
 ###---OFAC FFFBIN backup & bash_profile update---###
 - block:
     - name: Find existing fffbin-* directories (except new one)
@@ -98,15 +103,14 @@
       register: existing_fffbin
       when: pkg_type | trim == "OFAC"
 
-    - name: Move old fffbin-* directories to backup (except new)
+    - name: Backup fffbin directory if exists (add date as suffix)
       shell: |
-        mv "{{ item.path }}" "{{ item.path }}_backup"
+        if [ -d "{{ dest_path }}" ]; then
+          mv "{{ dest_path }}" "{{ dest_path }}_{{ deploy_date }}"
+        fi
       args:
         executable: /bin/bash
-      loop: "{{ existing_fffbin.files }}"
-      when:
-        - pkg_type | trim == "OFAC"
-        - (item.path | basename) != ("fffbin-" + (ofac_version | replace('.', '')))
+      when: pkg_type | trim == "OFAC"
     
     - name: Get all previous FFFBIN versions (including commented)
       shell: |
@@ -162,19 +166,15 @@
         deploy_date: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
       when: pkg_type | trim == "FOF64"
 
-    - name: Backup old FOF-* directories (not matching current version)
+    - name: Backup FOF-* directories (add date as suffix)
       shell: |
-        mv "{{ item.path }}" "{{ item.path }}_backup"
+        if [ -d "{{ item.path }}" ]; then
+          mv "{{ item.path }}" "{{ item.path }}_{{ deploy_date }}"
+        fi
       args:
         executable: /bin/bash
       loop: "{{ fof_dirs.files }}"
-      when:
-        - pkg_type | trim == "FOF64"
-        - (item.path | basename) not in [
-            "FOF-NTB-{{ fof64_version }}",
-            "FOF-SFX-{{ fof64_version }}",
-            "FOF-MCDD-{{ fof64_version }}"
-          ]
+      when: pkg_type | trim == "FOF64" and fof_dirs is defined and fof_dirs.files | length > 0
 
     - name: Create new FOF directories with version
       file:
