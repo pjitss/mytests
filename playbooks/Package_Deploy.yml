@@ -10,7 +10,7 @@
       include_tasks: deploy_tar_package.yml
       loop: "{{ file_name.split(',') }}"
       loop_control:
-        loop_var: file
+        loop_var: pkgfile
       when: task == "deploy"
 
 
