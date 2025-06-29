@@ -26,7 +26,7 @@ node {
         stage("Upload ${file.trim()}") {
             ansiblePlaybook(
                 playbook: "role/FSK-Deployment/Nexus-Tasks.pb",
-                extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=upload"
+                extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=${TASK}"
             )
         }
     }
