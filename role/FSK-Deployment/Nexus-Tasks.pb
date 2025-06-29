@@ -30,11 +30,7 @@
             (nexus_path_map | default({})) |
             combine({
               item: (
-                package_type_nexus_paths[pkg_type_map[item]] | default('') | trim
-              )
-            })
-          }}
-      loop: "{{ file_name.split(',') }}"
+                package_type_nexus_paths[pkg_type_map[item]] | default('') |_
 
     - name: Print file-to-Nexus-path map
       debug:
