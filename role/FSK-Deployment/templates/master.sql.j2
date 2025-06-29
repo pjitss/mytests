@@ -1,0 +1,11 @@
+WHENEVER SQLERROR EXIT SQL.SQLCODE
+WHENEVER OSERROR EXIT 1
+
+{% set names = var_names.split(',') %}
+{% set values = var_values.split(',') %}
+{% for i in range(names|length) %}
+DEFINE {{ names[i] }} = '{{ values[i] }}'
+{% endfor %}
+{% for file in file_names.split(',') %}
+@{{ script_path }}\\{{ file | trim }}
+{% endfor %}

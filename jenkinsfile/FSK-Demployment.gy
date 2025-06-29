@@ -21,11 +21,11 @@ node {
 
     def files = FILENAMES.split(",")
 
-    if (TASK == 'upload') {
+    if (TASK in ['Nexus-Upload', 'Nexus-Download']) {
     for (file in files) {
         stage("Upload ${file.trim()}") {
             ansiblePlaybook(
-                playbook: "playbooks/Nexus_Upload.yml",
+                playbook: "role/FSK-Deployment/Nexus-Tasks.pb",
                 extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e task=upload"
             )
         }
@@ -34,15 +34,24 @@ node {
         for (file in files) {
             stage("Deploy ${file.trim()}") {
                 ansiblePlaybook(
-                    playbook: "playbooks/Package_Deploy.yml",
+                    playbook: "role/FSK-Deployment/Package-Deploy.pb",
                     extras: "-vv -i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${file.trim()} -e ofac_version=${OFAC_VERS} -e fof64_version=${FOF64_VERS} -e task=deploy"
                 )
             }
         }
+    } else if (TASK == 'frontend') {
+        for (file in files) {
+            stage("Frontend Package Deployment") {
+                ansiblePlaybook(
+                    playbook: "role/FSK-Deployment/Frontend-Deploy.pb",
+                    extras: "-vv -i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_name=${FILENAMES} -e task=frontend"
+                )
+            }
+        } 
     } else if (TASK == 'dba') {
         stage("Run all DBA SQL scripts") {
             ansiblePlaybook(
-                playbook: "playbooks/dbjob.yml",
+                playbook: "role/FSK-Deployment/DB-Deploy.pb",
                 extras: "-i inventories/${ENVTYPE}/myapps.ini -e ENVNAME=${ENVTYPE} -e COMP=${COMP} -e file_names='${FILENAMES}' -e var_names='${VARNAMES}' -e var_values='${VARVALUES}' -e task=dba"
             )
         }

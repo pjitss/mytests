@@ -1,0 +1,14 @@
+- name: Deploy each tar.gz package
+  hosts: "{{ COMP }}"
+  gather_facts: false
+  become: yes
+  vars_files:
+    - "../vars/common.var"
+
+  tasks:
+    - name: Deploy each file
+      include_tasks: deploy_tar_package.yml
+      loop: "{{ file_name.split(',') }}"
+      loop_control:
+        loop_var: pkgfile
+      when: task == "deploy"

@@ -1,5 +1,5 @@
 -- create_table.sql
-CREATE TABLE &tabname (
+CREATE TABLE &tablename (
     id NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name VARCHAR2(50),
     department VARCHAR2(50),

@@ -1,0 +1,58 @@
+- name: Upload/download files to Nexus
+  hosts: "{{ COMP }}"
+  become: yes
+  gather_facts: false
+  vars_files:
+    - "../vars/common.var"
+
+  tasks:
+
+    - name: Check if filename extension is tar.gz
+      fail:
+        msg: "package file '{{ item }}' does not have .tar.gz or .zip extension. Failing the pipeline."
+      when: item is not regex(".*\\.(tar\\.gz|zip)$")
+      loop: "{{ file_name.split(',') }}"
+      tags:
+        - always
+
+    - name: Set Nexus path per file (based on package type in filename)
+      set_fact:
+        current_nexus_path: >-
+          {% for key in package_type_nexus_paths.keys() %}
+            {% if key in item %}
+              {{ package_type_nexus_paths[key] }}
+            {% endif %}
+          {% endfor %}
+      loop: "{{ file_name.split(',') }}"
+      loop_control:
+        loop_var: item
+      register: file_paths
+
+    - name: Print file-to-Nexus-path map
+      debug:
+        msg: "File '{{ item.item }}' will upload to Nexus dir '{{ item.ansible_facts.current_nexus_path }}'"
+      loop: "{{ file_paths.results }}"
+
+
+    - name: Check if file already exists in Nexus (per directory)
+      shell: |
+        curl -I -u {{ nexus_username }}:{{ nexus_password }} {{ item.ansible_facts.current_nexus_path | trim }}{{ item.item }}
+      register: artifact_status
+      ignore_errors: true
+      loop: "{{ file_paths.results }}"
+
+    - name: Fail if file already exists
+      fail:
+        msg: "File {{ item.item }} already exists in Nexus. Upload forbidden to prevent overwriting."
+      when:
+        - "'200 OK' in item.stdout"
+      loop: "{{ artifact_status.results }}"
+
+    - name: Upload each file to its Nexus directory based on file type
+      shell: |
+        curl -v -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item.item }} {{ item.ansible_facts.current_nexus_path }}
+      when:
+        - task == "upload"
+        - item.ansible_facts.current_nexus_path is defined
+        - item.ansible_facts.current_nexus_path|length > 0
+      loop: "{{ file_paths.results }}"
