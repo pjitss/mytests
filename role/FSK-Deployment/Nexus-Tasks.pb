@@ -59,7 +59,9 @@
     - name: Fail if file already exists
       fail:
         msg: "File {{ item.item }} already exists in Nexus. Upload forbidden to prevent overwriting."
-      when: item.stdout == "200"
+      when: 
+        - item.stdout == "200"
+        - task == 'Nexus-Upload'
       loop: "{{ file_check.results }}"
 
     - name: Upload each file to its Nexus directory based on file type
