@@ -32,6 +32,7 @@
       debug:
         msg: "File '{{ item.item }}' will upload to Nexus dir '{{ item.ansible_facts.current_nexus_path }}'"
       loop: "{{ file_paths.results }}"
+      when: task == 'Nexus-Upload'
 
 
     - name: Check if file already exists in Nexus (per directory)
@@ -40,6 +41,7 @@
       register: artifact_status
       ignore_errors: true
       loop: "{{ file_paths.results }}"
+      when: task == 'Nexus-Upload'
 
     - name: Fail if file already exists
       fail:
@@ -47,6 +49,7 @@
       when:
         - "'200 OK' in item.stdout"
       loop: "{{ artifact_status.results }}"
+      when: task == 'Nexus-Upload'
 
     - name: Upload each file to its Nexus directory based on file type
       shell: |
@@ -56,3 +59,4 @@
         - item.ansible_facts.current_nexus_path is defined
         - item.ansible_facts.current_nexus_path|length > 0
       loop: "{{ file_paths.results }}"
+      when: task == 'Nexus-Upload'
