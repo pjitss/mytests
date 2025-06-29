@@ -30,7 +30,11 @@
             (nexus_path_map | default({})) |
             combine({
               item: (
-                package_type_nexus_paths[pkg_type_map[item]] | default('') |_
+                package_type_nexus_paths[pkg_type_map[item]] | default('') | trim
+              )
+            })
+          }}
+      loop: "{{ file_name.split(',') }}"
 
     - name: Print file-to-Nexus-path map
       debug:
@@ -45,37 +49,31 @@
       loop_control:
         label: "{{ item }}"
 
+    # >>>>> From here onward, always loop over file_check.results <<<<<
+
     - name: Debug file existence HTTP code
       debug:
-        msg: "File check for {{ item }} returned HTTP code {{ file_check.results[loop.index0].stdout }}"
-      loop: "{{ file_name.split(',') }}"
-      loop_control:
-        label: "{{ item }}"
+        msg: "File check for {{ item.item }} returned HTTP code {{ item.stdout }}"
+      loop: "{{ file_check.results }}"
 
     - name: Fail if file already exists
       fail:
-        msg: "File {{ item }} already exists in Nexus. Upload forbidden to prevent overwriting."
-      when: file_check.results[loop.index0].stdout == "200"
-      loop: "{{ file_name.split(',') }}"
-      loop_control:
-        label: "{{ item }}"
+        msg: "File {{ item.item }} already exists in Nexus. Upload forbidden to prevent overwriting."
+      when: item.stdout == "200"
+      loop: "{{ file_check.results }}"
 
     - name: Upload each file to its Nexus directory based on file type
       shell: |
-        curl -u admin:redhat --upload-file /tmp/{{ item | trim }} {{ nexus_path_map[item] }}{{ item | trim }}
+        curl -u admin:redhat --upload-file /tmp/{{ item.item | trim }} {{ nexus_path_map[item.item] }}{{ item.item | trim }}
       when: 
         - task == 'Nexus-Upload'
-        - file_check.results[loop.index0].stdout == "404"
-      loop: "{{ file_name.split(',') }}"
-      loop_control:
-        label: "{{ item }}"
+        - item.stdout == "404"
+      loop: "{{ file_check.results }}"
 
     - name: Download each file from its Nexus directory
       shell: |
-        curl -u admin:redhat -o /tmp/{{ item | trim }} {{ nexus_path_map[item] }}{{ item | trim }}
+        curl -u admin:redhat -o /tmp/{{ item.item | trim }} {{ nexus_path_map[item.item] }}{{ item.item | trim }}
       when: 
         - task == 'Nexus-Download'
-        - file_check.results[loop.index0].stdout == "200"
-      loop: "{{ file_name.split(',') }}"
-      loop_control:
-        label: "{{ item }}"
+        - item.stdout == "200"
+      loop: "{{ file_check.results }}"
