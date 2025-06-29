@@ -64,7 +64,7 @@
 
     - name: Upload each file to its Nexus directory based on file type
       shell: |
-        curl -u admin:redhat --upload-file /tmp/{{ item.item | trim }} {{ nexus_path_map[item.item] }}{{ item.item | trim }}
+        curl -u admin:redhat --upload-file {{ upload_source_path_lin }}/{{ item.item | trim }} {{ nexus_path_map[item.item | default(item)] }}{{ item.item | trim }}
       when: 
         - task == 'Nexus-Upload'
         - item.stdout == "404"
