@@ -3,7 +3,7 @@
   become: yes
   gather_facts: false
   vars_files:
-    - "../vars/common.var"
+    - "../../vars/common.var"
 
   tasks:
 
