@@ -1,0 +1,22 @@
+### nexus vars
+
+nexus_repo_pr: 'http://192.168.0.145:8081/repository/jits_repo/'
+nexus_username: 'admin'
+nexus_password: 'redhat'
+
+# Server Paths
+upload_dir: 'D:\\Build'                                  # app team will keep package here to upload to np_nexus
+download_dir: 'D:\\Nexus_Download'                       # destination dir during package download & migrate
+upload_dir_lin: '/home/oprroot/upload'                    # destination dir to upload to np_nexus
+download_dir_lin: '/home/oprroot/download'                # destination dir during package download & migrate
+
+# Path Variables
+repo_dir: '{{ entity }}_{{ app_type }}'                   
+nexus_np_path: '{{ nexus_repo_np }}/{{ app_name }}'       
+nexus_pr_path: '{{ nexus_repo_pr }}/{{ app_name }}'       
+upload_source_path: '{{ upload_dir }}\\{{ upload_dir }}\\{{ repo_dir }}\\{{ app_name }}'         
+upload_source_path_lin: '{{ upload_dir_lin }}/{{ upload_dir_lin }}/{{ repo_dir }}/{{ app_name }}'   
+server_download_path: '{{ download_dir }}\\{{ download_dir }}\\{{ repo_dir }}\\{{ app_name }}'    
+server_download_path_lin: '{{ download_dir_lin }}/{{ download_dir_lin }}/{{ repo_dir }}/{{ app_name }}' 
+prodserver_download_path: '{{ download_dir }}\\{{ download_dir }}\\{{ app_name }}'                
+prodserver_download_path_lin: '{{ download_dir_lin }}/{{ app_name }}'

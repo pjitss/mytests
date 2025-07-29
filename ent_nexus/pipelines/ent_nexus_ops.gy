@@ -1,0 +1,50 @@
+properties(
+    [
+        parameters([
+            string(defaultValue: '', name: 'ENVNAME'),
+            string(defaultValue: '', name: 'FILENAME'),
+            string(defaultValue: '', name: 'APPNAME'),
+            string(defaultValue: 'jits_1', name: 'branch'),
+            string(defaultValue: '', name: 'TASK'),
+            string(defaultValue: '', name: 'ENTITY'),
+            string(defaultValue: '', name: 'APPTYPE'),
+            string(defaultValue: '', name: 'CHECKSUM')
+        ])
+    ]
+)
+
+node {
+    
+    cleanWs()
+
+    stage ('git repo checkout') {
+        git branch: 'jits_1', url: 'git@github.com:pjitss/mytests.git'
+    }
+
+    def connectionType = sh(
+        script: '''
+            if [[ "$TASK" == "upload" || "$TASK" == "migrate" ]]; then
+                grep -A1 "\[$TASK\]" playbooks/envs/$ENVNAME/$APPNAME/$APPNAME.inv | grep ansible_connection= | awk -F'ansible_connection=' '{print $2}' | awk '{print $1}'
+            else
+                grep -A1 "\[$ENTITY\_$APPTYPE\]" playbooks/envs/$ENVNAME/$APPNAME/$APPNAME.inv | grep ansible_connection= | awk -F'ansible_connection=' '{print $2}' | awk '{print $1}'
+            fi
+        ''',
+        returnStdout: true
+    ).trim()
+
+    echo "Connection type is: ${connectionType}"
+    
+    def COMP = ""
+    if (TASK == "upload"){
+        COMP = "${TASK}"
+    } else if (TASK == "download") {
+        COMP = "${ENTITY}_${APPTYPE}"
+    } else {
+        COMP = "${TASK}" 
+    }
+
+    ansiblePlaybook(
+        playbook: "ent_nexus/playbook/package-manage.yml",
+        extras: "-i \"ent_nexus/env/${ENVNAME}/${APPNAME}/${APPNAME}.inv\" -e app_name=${APPNAME} -e file_name=${FILENAME} -e ENVNAME=${ENVNAME} -e task=${TASK} -e checksum_val=${CHECKSUM} -e entity=${ENTITY} -e app_type=${APPTYPE} -e COMP=${COMP} -e OS=${connectionType}"
+    )
+}

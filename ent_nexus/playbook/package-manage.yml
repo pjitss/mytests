@@ -1,0 +1,124 @@
+# ================================
+# Ansible Playbook: package-manage.yml
+# ================================
+
+- hosts: "{{ COMP }}"
+  gather_facts: true
+  vars_files:
+    - "vars/myvars"
+
+  tasks:
+    - name: Check Connectivity
+      win_ping:
+      register: ping_status
+      when: OS == "winrm"
+
+    - name: Check Connectivity
+      ping:
+      register: ping_status
+      when: OS == "ssh"
+
+    - name: Print ping status (Linux)
+      debug:
+        msg: "{{ ping_status.ping }}"
+      when: OS == "ssh"
+
+    - name: Print ping status (Windows)
+      debug:
+        msg: "{{ ping_status }}"
+      when: OS == "winrm"
+
+    - name: Print variable values
+      debug:
+        msg:
+          - "server dest path is: {{ server_download_path }}"
+          - "repo dir is: {{ repo_dir }}"
+          - "source path is: {{ upload_source_path }}"
+          - "nexus_np path is: {{ nexus_np_path }}"
+          - "nexus_pr path is: {{ nexus_pr_path }}"
+
+    - name: Verify if file extension is zip
+      fail:
+        msg: "Package file '{{ file_name }}' not having .zip extension, failing the pipeline"
+      when: file_name is not regex(".*\\.zip$")
+
+    - name: Upload file from Windows source to Nexus
+      win_shell: >
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path }}\\{{ file_name }} {{ nexus_np_path }}
+      register: upload_status
+      when:
+        - task == "upload"
+        - OS == "winrm"
+
+    - name: Upload file from Linux source to Nexus
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ file_name }} {{ nexus_np_path }}
+      register: upload_status
+      when:
+        - task == "upload"
+        - OS == "ssh"
+
+    - name: Print upload status
+      debug:
+        var: upload_status
+      when: task == "upload"
+
+    - name: Ensure destination directory exists on Windows dest server
+      win_file:
+        path: "{{ server_download_path }}"
+        state: directory
+      when:
+        - task == "download"
+        - OS == "winrm"
+
+    - name: Ensure destination directory exists on Linux dest server
+      file:
+        path: "{{ server_download_path_lin }}"
+        state: directory
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Check if file already exists on Windows dest server
+      win_stat:
+        path: "{{ server_download_path }}\\{{ file_name }}"
+      register: file_result
+      when:
+        - task == "download"
+        - OS == "winrm"
+
+    - name: Download package to Windows dest server
+      win_get_url:
+        url: "{{ nexus_np_path }}/{{ file_name }}"
+        dest: "{{ server_download_path }}\\{{ file_name }}"
+        validate_certs: false
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        checksum: "sha1:{{ checksum_val }}"
+        follow_redirects: all
+        timeout: 300
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - not file_result.stat.exists
+
+    - name: Check if file already exists on Linux dest server
+      stat:
+        path: "{{ server_download_path_lin }}/{{ file_name }}"
+      register: file_result
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Download package to Linux dest server
+      get_url:
+        url: "{{ nexus_np_path }}/{{ file_name }}"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}"
+        validate_certs: false
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        checksum: "sha1:{{ checksum_val }}"
+      when:
+        - task == "download"
+        - OS == "ssh"
+        - not file_result.stat.exists
