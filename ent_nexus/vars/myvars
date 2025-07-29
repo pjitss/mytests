@@ -7,8 +7,8 @@ nexus_password: 'redhat'
 # Server Paths
 upload_dir: 'D:\\Build'                                  # app team will keep package here to upload to np_nexus
 download_dir: 'D:\\Nexus_Download'                       # destination dir during package download & migrate
-upload_dir_lin: '/home/oprroot/upload'                    # destination dir to upload to np_nexus
-download_dir_lin: '/home/oprroot/download'                # destination dir during package download & migrate
+upload_dir_lin: '/home/jits/nexus_upload'                    # destination dir to upload to np_nexus
+download_dir_lin: '/home/jits/download'                # destination dir during package download & migrate
 
 # Path Variables
 repo_dir: '{{ entity }}_{{ app_type }}'                   
