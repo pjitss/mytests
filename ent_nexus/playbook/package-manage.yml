@@ -5,7 +5,7 @@
 - hosts: "{{ COMP }}"
   gather_facts: true
   vars_files:
-    - "vars/myvars"
+    - "../vars/myvars"
 
   tasks:
     - name: Check Connectivity
