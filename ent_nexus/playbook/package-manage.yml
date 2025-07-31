@@ -34,8 +34,8 @@
           - "server dest path is: {{ server_download_path }}"
           - "repo dir is: {{ repo_dir }}"
           - "source path is: {{ upload_source_path }}"
-          - "nexus_np path is: {{ nexus_np_path }}"
-          - "nexus_pr path is: {{ nexus_pr_path }}"
+          #- "nexus_np path is: {{ nexus_np_path }}"
+          - "nexus_pr path is: {{ nexus_repo_pr }}"
 
     - name: Verify if file extension is zip
       fail:
@@ -44,7 +44,7 @@
 
     - name: Upload file from Windows source to Nexus
       win_shell: >
-        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path }}\\{{ file_name }} {{ nexus_np_path }}
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path }}\\{{ file_name }} {{ nexus_repo_pr }}
       register: upload_status
       when:
         - task == "upload"
@@ -52,7 +52,7 @@
 
     - name: Upload file from Linux source to Nexus
       shell: >
-        curl -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ file_name }} {{ nexus_np_path }}
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ file_name }} {{ nexus_repo_pr }}
       register: upload_status
       when:
         - task == "upload"
@@ -89,7 +89,7 @@
 
     - name: Download package to Windows dest server
       win_get_url:
-        url: "{{ nexus_np_path }}/{{ file_name }}"
+        url: "{{ nexus_repo_pr }}/{{ file_name }}"
         dest: "{{ server_download_path }}\\{{ file_name }}"
         validate_certs: false
         url_username: "{{ nexus_username }}"
@@ -112,7 +112,7 @@
 
     - name: Download package to Linux dest server
       get_url:
-        url: "{{ nexus_np_path }}/{{ file_name }}"
+        url: "{{ nexus_repo_pr }}/{{ file_name }}"
         dest: "{{ server_download_path_lin }}/{{ file_name }}"
         validate_certs: false
         url_username: "{{ nexus_username }}"
