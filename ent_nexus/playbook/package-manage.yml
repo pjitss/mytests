@@ -34,7 +34,7 @@
           - "server dest path is: {{ server_download_path }}"
           - "repo dir is: {{ repo_dir }}"
           - "source path is: {{ upload_source_path }}"
-          #- "nexus_np path is: {{ nexus_np_path }}"
+          - "linux upload path is: {{ upload_source_path_lin }}"
           - "nexus_pr path is: {{ nexus_repo_pr }}"
 
     - name: Verify if file extension is zip
