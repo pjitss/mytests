@@ -23,7 +23,7 @@ node {
 
     def connectionType = sh(
     script: """
-        if [[ "\$TASK" == "upload" || "\$TASK" == "migrate" ]]; then
+        if [[ "${TASK}" == "upload" || "${TASK}" == "migrate" ]]; then
             grep -A1 "[$TASK]" ent_nexus/env/\$ENVNAME/\$APPNAME/\$APPNAME.inv | grep ansible_connection= | awk -F'ansible_connection=' '{print \$2}' | awk '{print \$1}'
         else
             grep -A1 "[${ENTITY}_${APPTYPE}]" ent_nexus/env/\$ENVNAME/\$APPNAME/\$APPNAME.inv | grep ansible_connection= | awk -F'ansible_connection=' '{print \$2}' | awk '{print \$1}'
