@@ -1,6 +1,6 @@
 ### nexus vars
 
-nexus_repo_pr: 'http://192.168.0.145:8081/repository/jits_repo/'
+nexus_repo_pr: 'http://192.168.0.145:8081/repository/jits_repo'
 nexus_username: 'admin'
 nexus_password: 'redhat'
 
