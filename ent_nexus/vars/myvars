@@ -12,7 +12,7 @@ download_dir_lin: '/home/jits/download'                # destination dir during 
 
 # Path Variables
 repo_dir: '{{ entity }}_{{ app_type }}'                        
-nexus_pr_path: '{{ nexus_repo_pr }}/{{ app_name }}'       
+nexus_pr_path: '{{ nexus_repo_pr }}/{{ app_name }}/{{ file_name }}'       
 upload_source_path: '{{ upload_dir }}'         
 upload_source_path_lin: '{{ upload_dir_lin }}/{{ app_name }}'   
 server_download_path: '{{ download_dir }}/{{ app_name }}'    

@@ -112,8 +112,8 @@
 
     - name: Download package to Linux dest server
       get_url:
-        url: "{{ nexus_pr_path }}/{{ file_name }}"
-        dest: "{{ server_download_path_lin }}/{{ file_name }}"
+        url: "{{ nexus_pr_path }}"
+        dest: "{{ server_download_path_lin }}"
         validate_certs: false
         url_username: "{{ nexus_username }}"
         url_password: "{{ nexus_password }}"
