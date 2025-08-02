@@ -73,7 +73,7 @@
 
 
     - name: Generate SHA1 checksum
-      shell: sha1sum {{ upload_source_path_lin }}/{{ file_names }} | awk '{print $1}'
+      shell: sha1sum {{ upload_source_path_lin }}/{{ item }} | awk '{print $1}'
       register: file_checksum
       when:
         - task == "upload"
@@ -82,14 +82,14 @@
 
     - name: Output SHA1 checksum
       debug:
-        msg: "SHA1 for {{ file_names }} is {{ file_checksum.stdout }}"
+        msg: "SHA1 for {{ item }} is {{ file_checksum.stdout }}"
       when: 
       - task == "upload"
       - ENVNAME != "UAT"
 
     - name: Create checksum file
       copy:
-        dest: "{{ upload_source_path_lin }}/{{ file_names }}.sha1"
+        dest: "{{ upload_source_path_lin }}/{{ item }}.sha1"
         content: "{{ file_checksum.stdout }}"
       when: 
        - task == "upload"
@@ -98,8 +98,8 @@
     - name: Upload file from Linux source to Nexus PROD
       shell: >
         curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
-        --upload-file {{ upload_source_path_lin }}/{{ file_names }}
-        {{ nexus_pr_path }}/{{ file_names }}
+        --upload-file {{ upload_source_path_lin }}/{{ item }}
+        {{ nexus_pr_path }}/{{ item }}
       register: upload_status
       when:
         - task == "upload"
@@ -116,8 +116,8 @@
     - name: Upload checksum file to Nexus PROD
       shell: >
         curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
-        --upload-file {{ upload_source_path_lin }}/{{ file_names }}.sha1
-        {{ nexus_pr_path }}/{{ file_names }}.sha1
+        --upload-file {{ upload_source_path_lin }}/{{ item }}.sha1
+        {{ nexus_pr_path }}/{{ item }}.sha1
       register: upload_checksum_status
       when:
         - task == "upload"
