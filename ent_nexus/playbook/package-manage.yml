@@ -211,7 +211,3 @@
       when:
         - task == "download"
         - OS == "ssh"
-
-
-
-
