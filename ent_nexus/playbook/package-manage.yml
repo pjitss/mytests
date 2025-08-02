@@ -72,7 +72,7 @@
         - ENVNAME == "UAT"
 
 
-    - name: Generate SHA1 checksum
+    - name: Generate SHA1 checksum (PROD)
       shell: sha1sum {{ upload_source_path_lin }}/{{ item }} | awk '{print $1}'
       register: file_checksum
       when:
@@ -81,43 +81,43 @@
         - ENVNAME != "UAT"
       loop: "{{ file_names }}"
 
-    - name: Output SHA1 checksum
+    - name: Output SHA1 checksum (PROD)
       debug:
-        msg: "SHA1 for {{ item }} is {{ file_checksum.results[loop.index0].stdout }}"
-      when: 
+        msg: "SHA1 for {{ item }} is {{ file_checksum.results[idx].stdout }}"
+      when:
         - task == "upload"
         - ENVNAME != "UAT"
       loop: "{{ file_names }}"
       loop_control:
-        index_var: loop_index
+        index_var: idx
 
-    - name: Create checksum file
+    - name: Create checksum file (PROD)
       copy:
         dest: "{{ upload_source_path_lin }}/{{ item }}.sha1"
-        content: "{{ file_checksum.results[loop.index0].stdout }}"
-      when: 
+        content: "{{ file_checksum.results[idx].stdout }}"
+      when:
         - task == "upload"
         - ENVNAME != "UAT"
       loop: "{{ file_names }}"
       loop_control:
-        index_var: loop_index
+        index_var: idx
 
     - name: Upload file from Linux source to Nexus PROD
       shell: >
         curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
         --upload-file {{ upload_source_path_lin }}/{{ item }}
         {{ nexus_pr_path }}/{{ item }}
-      register: upload_status
+      register: upload_status_prod
       when:
         - task == "upload"
         - OS == "ssh"
         - ENVNAME != "UAT"
       loop: "{{ file_names }}"
 
-    - name: Print upload status
+    - name: Print upload status (PROD)
       debug:
-        var: upload_status
-      when: 
+        var: upload_status_prod
+      when:
         - task == "upload"
         - ENVNAME != "UAT"
 
@@ -132,6 +132,8 @@
         - OS == "ssh"
         - ENVNAME != "UAT"
       loop: "{{ file_names }}"
+      loop_control:
+        index_var: idx
 
 
 
