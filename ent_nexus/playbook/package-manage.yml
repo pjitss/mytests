@@ -4,6 +4,8 @@
 
 - hosts: "{{ COMP }}"
   gather_facts: true
+  vars:
+    file_names: "{{ files_input.split(',') }}"
   vars_files:
     - "../vars/myvars"
 
@@ -39,8 +41,9 @@
 
     - name: Verify if file extension is zip
       fail:
-        msg: "Package file '{{ file_name }}' not having .zip extension, failing the pipeline"
-      when: file_name is not regex(".*\\.zip$")
+        msg: "Package file '{{ item }}' not having .zip extension, failing the pipeline"
+      when: item is not regex(".*\\.zip$")
+      loop: "{{ file_names }}"
 
     - name: Upload file from Windows source to Nexus
       win_shell: >
@@ -50,18 +53,21 @@
         - task == "upload"
         - OS == "winrm"
 
-    - name: Upload file from Linux source to Nexus
+    - name: Upload files from Linux source to Nexus UAT
       shell: >
-        curl -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ file_name }} {{ nexus_pr_path }}
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_uat_path }}/{{ item }}
       register: upload_status
       when:
         - task == "upload"
         - OS == "ssh"
+      loop: "{{ file_names }}"
 
     - name: Print upload status
       debug:
         var: upload_status
       when: task == "upload"
+
+###Download Task####
 
     - name: Ensure destination directory exists on Windows dest server
       win_file:
