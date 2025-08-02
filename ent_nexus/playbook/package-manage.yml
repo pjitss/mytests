@@ -52,6 +52,7 @@
       when:
         - task == "upload"
         - OS == "winrm"
+        - ENVNAME == "UAT"
 
     - name: Upload files from Linux source to Nexus UAT
       shell: >
@@ -60,12 +61,69 @@
       when:
         - task == "upload"
         - OS == "ssh"
+        - ENVNAME == "UAT"
       loop: "{{ file_names }}"
 
     - name: Print upload status
       debug:
         var: upload_status
-      when: task == "upload"
+      when: 
+        - task == "upload"
+        - ENVNAME == "UAT"
+
+
+    - name: Generate SHA1 checksum
+      shell: sha1sum {{ upload_source_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: file_checksum
+      when:
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Output SHA1 checksum
+      debug:
+        msg: "SHA1 for {{ file_name }} is {{ file_checksum.stdout }}"
+      when: 
+      - task == "upload"
+      - ENVNAME != "UAT"
+
+    - name: Create checksum file
+      copy:
+        dest: "{{ upload_source_path_lin }}/{{ file_name }}.sha1"
+        content: "{{ file_checksum.stdout }}"
+      when: 
+       - task == "upload"
+       - ENVNAME != "UAT"
+
+    - name: Upload file from Linux source to Nexus PROD
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ upload_source_path_lin }}/{{ file_name }}
+        {{ nexus_pr_path }}/{{ file_name }}
+      register: upload_status
+      when:
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Print upload status
+      debug:
+        var: upload_status
+      when: 
+        - task == "upload"
+        - ENVNAME != "UAT"
+
+    - name: Upload checksum file to Nexus PROD
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ upload_source_path_lin }}/{{ file_name }}.sha1
+        {{ nexus_pr_path }}/{{ file_name }}.sha1
+      register: upload_checksum_status
+      when:
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
 
 ###Download Task####
 
