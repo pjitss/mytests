@@ -79,21 +79,24 @@
         - task == "upload"
         - OS == "ssh"
         - ENVNAME != "UAT"
+      loop: "{{ file_names }}"
 
     - name: Output SHA1 checksum
       debug:
         msg: "SHA1 for {{ item }} is {{ file_checksum.stdout }}"
       when: 
-      - task == "upload"
-      - ENVNAME != "UAT"
+        - task == "upload"
+        - ENVNAME != "UAT"
+      loop: "{{ file_names }}"
 
     - name: Create checksum file
       copy:
         dest: "{{ upload_source_path_lin }}/{{ item }}.sha1"
         content: "{{ file_checksum.stdout }}"
       when: 
-       - task == "upload"
-       - ENVNAME != "UAT"
+        - task == "upload"
+        - ENVNAME != "UAT"
+      loop: "{{ file_names }}"
 
     - name: Upload file from Linux source to Nexus PROD
       shell: >
@@ -105,6 +108,7 @@
         - task == "upload"
         - OS == "ssh"
         - ENVNAME != "UAT"
+      loop: "{{ file_names }}"
 
     - name: Print upload status
       debug:
@@ -123,6 +127,7 @@
         - task == "upload"
         - OS == "ssh"
         - ENVNAME != "UAT"
+      loop: "{{ file_names }}"
 
 
 ###Download Task####
