@@ -47,7 +47,7 @@
 
     - name: Upload file from Windows source to Nexus
       win_shell: >
-        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path }}\\{{ file_name }} {{ nexus_pr_path }}
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path }}\\{{ file_names }} {{ nexus_pr_path }}
       register: upload_status
       when:
         - task == "upload"
@@ -87,7 +87,7 @@
 
     - name: Check if file already exists on Windows dest server
       win_stat:
-        path: "{{ server_download_path }}\\{{ file_name }}"
+        path: "{{ server_download_path }}\\{{ file_names }}"
       register: file_result
       when:
         - task == "download"
@@ -95,8 +95,8 @@
 
     - name: Download package to Windows dest server
       win_get_url:
-        url: "{{ nexus_pr_path }}/{{ file_name }}"
-        dest: "{{ server_download_path }}\\{{ file_name }}"
+        url: "{{ nexus_pr_path }}/{{ file_names }}"
+        dest: "{{ server_download_path }}\\{{ file_names }}"
         validate_certs: false
         url_username: "{{ nexus_username }}"
         url_password: "{{ nexus_password }}"
@@ -110,7 +110,7 @@
 
     - name: Check if file already exists on Linux dest server
       stat:
-        path: "{{ server_download_path_lin }}/{{ file_name }}"
+        path: "{{ server_download_path_lin }}/{{ file_names }}"
       register: file_result
       when:
         - task == "download"
