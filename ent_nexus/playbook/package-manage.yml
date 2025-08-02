@@ -124,17 +124,7 @@
         - OS == "ssh"
         - ENVNAME != "UAT"
 
-
-
-###Download Task####
-
-    - name: Ensure destination directory exists on Windows dest server
-      win_file:
-        path: "{{ server_download_path }}"
-        state: directory
-      when:
-        - task == "download"
-        - OS == "winrm"
+#####Download Job#####
 
     - name: Ensure destination directory exists on Linux dest server
       file:
@@ -144,32 +134,9 @@
         - task == "download"
         - OS == "ssh"
 
-    - name: Check if file already exists on Windows dest server
-      win_stat:
-        path: "{{ server_download_path }}\\{{ file_names }}"
-      register: file_result
-      when:
-        - task == "download"
-        - OS == "winrm"
-
-    - name: Download package to Windows dest server
-      win_get_url:
-        url: "{{ nexus_pr_path }}/{{ file_names }}"
-        dest: "{{ server_download_path }}\\{{ file_names }}"
-        validate_certs: false
-        url_username: "{{ nexus_username }}"
-        url_password: "{{ nexus_password }}"
-        checksum: "sha1:{{ checksum_val }}"
-        follow_redirects: all
-        timeout: 300
-      when:
-        - task == "download"
-        - OS == "winrm"
-        - not file_result.stat.exists
-
     - name: Check if file already exists on Linux dest server
       stat:
-        path: "{{ server_download_path_lin }}/{{ file_names }}"
+        path: "{{ server_download_path_lin }}/{{ file_name }}"
       register: file_result
       when:
         - task == "download"
@@ -177,13 +144,74 @@
 
     - name: Download package to Linux dest server
       get_url:
-        url: "{{ nexus_pr_path }}"
-        dest: "{{ server_download_path_lin }}"
+        url: "{{ nexus_pr_path }}/{{ file_name }}"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}"
         validate_certs: false
         url_username: "{{ nexus_username }}"
         url_password: "{{ nexus_password }}"
-        checksum: "sha1:{{ checksum_val }}"
       when:
         - task == "download"
         - OS == "ssh"
         - not file_result.stat.exists
+
+    - name: Download SHA1 file to Linux dest server
+      get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
+        validate_certs: false
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Read SHA1 from downloaded .sha1 file
+      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
+      register: nexus_sha1
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Create audit manifest file
+      copy:
+        dest: "{{ server_download_path_lin }}/downloaded_checksum.txt"
+        content: "{{ file_name }} {{ nexus_sha1.stdout }}"
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Fail if Nexus SHA1 does not match user-supplied checksum
+      fail:
+        msg: |
+          Nexus .sha1 value ({{ nexus_sha1.stdout }}) does not match user-supplied checksum ({{ checksum_val }}). Aborting!
+      when:
+        - task == "download"
+        - OS == "ssh"
+        - nexus_sha1.stdout != checksum_val
+
+    - name: Calculate SHA1 of downloaded file
+      shell: sha1sum {{ server_download_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: actual_sha1
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Fail if actual file SHA1 does not match
+      fail:
+        msg: |
+          Actual file SHA1 ({{ actual_sha1.stdout }}) does not match .sha1 value ({{ nexus_sha1.stdout }}). File may be corrupted! Aborting!
+      when:
+        - task == "download"
+        - OS == "ssh"
+        - actual_sha1.stdout != nexus_sha1.stdout
+
+    - name: Success message (all checks passed)
+      debug:
+        msg: "Package downloaded and verified successfully. SHA1 integrity confirmed!"
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+
+
+
