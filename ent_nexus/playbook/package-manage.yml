@@ -205,6 +205,44 @@
         - OS == "ssh"
         - actual_sha1.stdout != nexus_sha1.stdout
 
+    - name: Delete downloaded file on checksum failure
+      file:
+        path: "{{ server_download_path_lin }}/{{ file_name }}"
+        state: absent
+      when:
+        - task == "download"
+        - OS == "ssh"
+    - actual_sha1.stdout != nexus_sha1.stdout
+
+    - name: Append result to audit log (in download folder)
+      lineinfile:
+        path: "{{ server_download_path_lin }}/download_audit.log"
+        create: yes
+        line: "{{ ansible_date_time.iso8601 }} | {{ file_name }} | {{ nexus_sha1.stdout }} | success"
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Show all SHA1 values for auditing
+      debug:
+        msg: |
+          SHA1 summary for {{ file_name }}:
+            - SHA1 from .sha1 file (Nexus): {{ nexus_sha1.stdout }}
+            - User-supplied SHA1           : {{ checksum_val }}
+            - Calculated SHA1 of file      : {{ actual_sha1.stdout }}
+      when:
+        - task == "download"
+        - OS == "ssh"
+
+    - name: Schedule deletion of all SHA1 and manifest files after 200 minutes
+      shell: |
+        (sleep 12000; rm -f {{ server_download_path_lin }}/*.sha1 {{ server_download_path_lin }}/downloaded_checksum.txt) &
+      args:
+        executable: /bin/bash
+      when:
+        - OS == "ssh"
+        - task == "download"
+
     - name: Success message (all checks passed)
       debug:
         msg: "Package downloaded and verified successfully. SHA1 integrity confirmed!"
