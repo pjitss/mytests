@@ -212,7 +212,7 @@
       when:
         - task == "download"
         - OS == "ssh"
-    - actual_sha1.stdout != nexus_sha1.stdout
+        - actual_sha1.stdout != nexus_sha1.stdout
 
     - name: Append result to audit log (in download folder)
       lineinfile:
