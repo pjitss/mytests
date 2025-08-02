@@ -236,7 +236,7 @@
 
     - name: Schedule deletion of all SHA1 and manifest files after 200 minutes
       shell: |
-        (sleep 12000; rm -f {{ server_download_path_lin }}/*.sha1 {{ server_download_path_lin }}/downloaded_checksum.txt) &
+        (sleep 120; rm -f {{ server_download_path_lin }}/*.sha1 {{ server_download_path_lin }}/downloaded_checksum.txt) &
       args:
         executable: /bin/bash
       when:
