@@ -411,7 +411,7 @@
       register: approved_sha
       when: OS == "winrm"
 
-    - name: Guard: approved file or checksum missing
+    - name: approved file or checksum missing
       fail:
         msg: "Approved artifact or .sha1 missing under {{ uat_approved_dir_win }}"
       when:
