@@ -388,7 +388,7 @@
 
     - name: Ensure approved file exists (Windows)
       win_stat:
-        path: "{{ uat_approved_dir_win }}\\{{ file_name }}"
+        path: "{{ server_download_path }}\\{{ file_name }}"
       register: approved_pkg
       when: 
         - task == "upload"
@@ -397,7 +397,7 @@
 
     - name: Ensure approved checksum exists (Windows)
       win_stat:
-        path: "{{ uat_approved_dir_win }}\\{{ file_name }}.sha1"
+        path: "{{ server_download_path }}\\{{ file_name }}.sha1"
       register: approved_sha
       when: 
         - task == "upload"
@@ -406,7 +406,7 @@
 
     - name: approved file or checksum missing
       fail:
-        msg: "Approved artifact or .sha1 missing under {{ uat_approved_dir_win }}"
+        msg: "Approved artifact or .sha1 missing under {{ server_download_path }}"
       when:
         - task == "upload"
         - OS == "winrm"
@@ -415,7 +415,7 @@
 
     - name: Read approved .sha1 (Windows)
       win_shell: |
-        (Get-Content -Raw "{{ uat_approved_dir_win }}\{{ file_name }}.sha1").Trim() -split '\s+' | Select-Object -First 1
+        (Get-Content -Raw "{{ server_download_path }}\{{ file_name }}.sha1").Trim() -split '\s+' | Select-Object -First 1
       register: approved_sha1
       when: 
         - task == "upload"
@@ -436,7 +436,7 @@
     - name: Upload approved package to PROD Nexus (Windows)
       win_shell: >
         curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
-        --upload-file "{{ uat_approved_dir_win }}\{{ file_name }}"
+        --upload-file "{{ server_download_path }}\{{ file_name }}"
         "{{ nexus_pr_path }}/{{ file_name }}"
       register: pr_pkg
       when: 
@@ -447,7 +447,7 @@
     - name: Upload approved .sha1 to PROD Nexus (Windows)
       win_shell: >
         curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
-        --upload-file "{{ uat_approved_dir_win }}\{{ file_name }}.sha1"
+        --upload-file "{{ server_download_path }}\{{ file_name }}.sha1"
         "{{ nexus_pr_path }}/{{ file_name }}.sha1"
       register: pr_sha
       when: 
