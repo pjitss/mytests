@@ -254,3 +254,71 @@
         - task == "upload"
         - OS == "ssh"
         - ENVNAME != "UAT"
+
+##### Download Package to Linux Prod VM #####
+
+    - name: Ensure destination directory exists (Linux)
+      file:
+        path: "{{ server_download_path_lin }}"
+        state: directory
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Download package from PROD Nexus (Linux)
+      get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Download .sha1 from PROD Nexus (Linux)
+      get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Read PROD .sha1 (Linux)
+      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
+      register: prod_sha1
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Calculate SHA1 of downloaded file (Linux)
+      shell: sha1sum {{ server_download_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: prod_local_sha1
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Fail if Nexus SHA1 != user-supplied checksum (Linux)
+      fail:
+        msg: "User checksum mismatch vs Nexus: user={{ checksum_val }}  nexus={{ prod_sha1.stdout }}"
+      when:
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+        - prod_sha1.stdout != checksum_val
+
+    - name: SHA1 summary (PROD)
+      debug:
+        msg:
+          - "PROD verification for {{ file_name }}:"
+          - "  - From PROD Nexus (.sha1): {{ prod_sha1.stdout }}"
+          - "  - Calculated locally     : {{ prod_local_sha1.stdout }}"
+          - "Input SHA1       : {{ checksum_val | default('N/A') }}"
