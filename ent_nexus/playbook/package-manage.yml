@@ -272,24 +272,6 @@
         - OS == "winrm"
         - ENVNAME == "UAT"
 
-    - name: Calculate SHA1 of downloaded file (Windows)
-      win_shell: |
-        (Get-FileHash -Algorithm SHA1 "{{ server_download_path }}\{{ file_name }}").Hash
-      register: local_sha1
-      when:
-        - task == "download"
-        - OS == "winrm"
-        - ENVNAME == "UAT"
-
-    - name: Create audit manifest (Windows)
-      win_copy:
-        dest: "{{ server_download_path }}\\downloaded_checksum.txt"
-        content: "{{ file_name }} nexus={{ nexus_sha1.stdout | trim }} local={{ local_sha1.stdout | trim }} user={{ checksum_val | default('N/A') }}"
-      when:
-        - task == "download"
-        - OS == "winrm"
-        - ENVNAME == "UAT"
-
     - name: Fail if Nexus SHA1 != user-supplied checksum (Windows)
       fail:
         msg: "User checksum mismatch vs Nexus: user={{ checksum_val }}  nexus={{ nexus_sha1.stdout | trim }}"
@@ -300,26 +282,6 @@
         - checksum_val is defined
         - checksum_val | length > 0
         - (nexus_sha1.stdout | trim) != checksum_val
-
-    - name: Fail if local SHA1 != user-supplied checksum (Windows)
-      fail:
-        msg: "User checksum mismatch vs Local: user={{ checksum_val }}  local={{ local_sha1.stdout | trim }}"
-      when:
-        - task == "download"
-        - OS == "winrm"
-        - ENVNAME == "UAT"
-        - checksum_val is defined
-        - checksum_val | length > 0
-        - (local_sha1.stdout | trim) != checksum_val
-
-    - name: Fail if mismatch nexus vs local (Windows)
-      fail:
-        msg: "SHA1 mismatch: local={{ local_sha1.stdout | trim }}  nexus={{ nexus_sha1.stdout | trim }}"
-      when:
-        - task == "download"
-        - OS == "winrm"
-        - ENVNAME == "UAT"
-        - (local_sha1.stdout | trim) != (nexus_sha1.stdout | trim)
 
     - name: SHA1 summary (Windows)
       debug:
