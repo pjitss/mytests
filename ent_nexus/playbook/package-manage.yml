@@ -104,10 +104,20 @@
         - OS == "winrm"
         - ENVNAME == "UAT"
 
-    - name: Write .sha1 sidecar (Windows)
-      win_copy:
-        dest: "{{ upload_source_path }}\\{{ file_name }}.sha1"
-        content: "{{ sha1_val.stdout | trim }}"
+    - name: Ensure upload directory exists (Windows)
+      win_file:
+        path: "{{ upload_source_path }}"
+        state: directory
+      when:
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Write .sha1 sidecar (Windows, via PowerShell)
+      win_shell: |
+        $dest = "{{ upload_source_path }}\{{ file_name }}.sha1"
+        $val  = "{{ sha1_val.stdout | trim }}"
+        Set-Content -LiteralPath $dest -Value $val -NoNewline -Encoding ascii
       when:
         - task == "upload"
         - OS == "winrm"
