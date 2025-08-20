@@ -564,6 +564,10 @@
           - "  - From PROD Nexus (.sha1): {{ prod_sha1.stdout }}"
           - "  - Calculated locally     : {{ prod_local_sha1.stdout }}"
           - "Input SHA1       : {{ checksum_val | default('N/A') }}"
+      when:
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
 
 ##### Download Package to Win Prod VM #####
 
