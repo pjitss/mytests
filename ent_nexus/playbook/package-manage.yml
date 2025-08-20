@@ -230,6 +230,15 @@
 
 ##### Download Windows Package to Windows UAT VM #####
 
+    - name: Ensure destination directory exists (Windows)
+      win_file:
+        path: "{{ server_download_path }}"
+        state: directory
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
     - name: Download package from UAT Nexus (Windows)
       win_get_url:
         url: "{{ nexus_uat_path }}/{{ file_name }}"
