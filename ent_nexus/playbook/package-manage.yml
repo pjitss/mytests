@@ -1,15 +1,13 @@
-# ================================
-# Ansible Playbook: package-manage.yml
-# ================================
-
+# =============================================
+# Job A: Upload to UAT Nexus (with SHA1)
+# File: playbook_jobA_upload_uat.yml
+# =============================================
 - hosts: "{{ COMP }}"
   gather_facts: true
-  vars:
-    file_names: "{{ files_input.split(',') }}"
   vars_files:
     - "../vars/myvars"
-
   tasks:
+
     - name: Check Connectivity
       win_ping:
       register: ping_status
@@ -38,214 +36,58 @@
           - "source path is: {{ upload_source_path }}"
           - "linux upload path is: {{ upload_source_path_lin }}"
           - "nexus_pr path is: {{ nexus_repo_pr }}"
-
-    - name: Verify if file extension is zip
+    
+    - name: Sanity check (.zip required)
       fail:
-        msg: "Package file '{{ item }}' not having .zip extension, failing the pipeline"
-      when: item is not regex(".*\\.zip$")
-      loop: "{{ file_names }}"
+        msg: "Package '{{ file_name }}' must end with .zip"
+      when: file_name is not regex('.*\\.zip$')
 
-    - name: Upload file from Windows source to Nexus
-      win_shell: >
-        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path }}\\{{ file_names }} {{ nexus_pr_path }}
-      register: upload_status
-      when:
-        - task == "upload"
-        - OS == "winrm"
-        - ENVNAME == "UAT"
-
-    - name: Upload files from Linux source to Nexus UAT
-      shell: >
-        curl -v -k -u {{ nexus_username }}:{{ nexus_password }} --upload-file {{ upload_source_path_lin }}/{{ item }} {{ nexus_uat_path }}/{{ item }}
-      register: upload_status
-      when:
-        - task == "upload"
-        - OS == "ssh"
-        - ENVNAME == "UAT"
-      loop: "{{ file_names }}"
-
-    - name: Print upload status
-      debug:
-        var: upload_status
-      when: 
-        - task == "upload"
-        - ENVNAME == "UAT"
-
-
-    - name: Generate SHA1 checksum
+    - name: Generate SHA1 for package (Linux)
       shell: sha1sum {{ upload_source_path_lin }}/{{ file_name }} | awk '{print $1}'
-      register: file_checksum
+      register: sha1_val
       when:
         - task == "upload"
         - OS == "ssh"
-        - ENVNAME != "UAT"
+        - ENVNAME == "UAT"
 
-    - name: Output SHA1 checksum
-      debug:
-        msg: "SHA1 for {{ file_name }} is {{ file_checksum.stdout }}"
-      when: 
-        - task == "upload"
-        - ENVNAME != "UAT"
-
-    - name: Create checksum file
+    - name: Write .sha1 sidecar (Linux)
       copy:
         dest: "{{ upload_source_path_lin }}/{{ file_name }}.sha1"
-        content: "{{ file_checksum.stdout }}"
+        content: "{{ sha1_val.stdout }}"
       when: 
         - task == "upload"
-        - ENVNAME != "UAT"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
 
-    - name: Upload file from Linux source to Nexus PROD
+    - name: Upload package to UAT Nexus (Linux)
       shell: >
         curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
         --upload-file {{ upload_source_path_lin }}/{{ file_name }}
-        {{ nexus_pr_path }}/{{ file_name }}
-      register: upload_status_prod
-      when:
-        - task == "upload"
-        - OS == "ssh"
-        - ENVNAME != "UAT"
-
-    - name: Print upload status (PROD)
-      debug:
-        var: upload_status_prod
+        {{ nexus_uat_path }}/{{ file_name }}
+      register: upload_pkg
       when: 
         - task == "upload"
-        - ENVNAME != "UAT"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
 
-    - name: Upload checksum file to Nexus PROD
+    - name: Upload .sha1 to UAT Nexus (Linux)
       shell: >
         curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
         --upload-file {{ upload_source_path_lin }}/{{ file_name }}.sha1
-        {{ nexus_pr_path }}/{{ file_name }}.sha1
-      register: upload_checksum_status
-      when:
+        {{ nexus_uat_path }}/{{ file_name }}.sha1
+      register: upload_sha
+      when: 
         - task == "upload"
         - OS == "ssh"
-        - ENVNAME != "UAT"
+        - ENVNAME == "UAT"
 
-#####Download Job#####
-
-    - name: Ensure destination directory exists on Linux dest server
-      file:
-        path: "{{ server_download_path_lin }}"
-        state: directory
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Check if file already exists on Linux dest server
-      stat:
-        path: "{{ server_download_path_lin }}/{{ file_name }}"
-      register: file_result
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Download package to Linux dest server
-      get_url:
-        url: "{{ nexus_pr_path }}/{{ file_name }}"
-        dest: "{{ server_download_path_lin }}/{{ file_name }}"
-        validate_certs: false
-        url_username: "{{ nexus_username }}"
-        url_password: "{{ nexus_password }}"
-      when:
-        - task == "download"
-        - OS == "ssh"
-        - not file_result.stat.exists
-
-    - name: Download SHA1 file to Linux dest server
-      get_url:
-        url: "{{ nexus_pr_path }}/{{ file_name }}.sha1"
-        dest: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
-        validate_certs: false
-        url_username: "{{ nexus_username }}"
-        url_password: "{{ nexus_password }}"
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Read SHA1 from downloaded .sha1 file
-      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
-      register: nexus_sha1
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Create audit manifest file
-      copy:
-        dest: "{{ server_download_path_lin }}/downloaded_checksum.txt"
-        content: "{{ file_name }} {{ nexus_sha1.stdout }}"
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Fail if Nexus SHA1 does not match user-supplied checksum
-      fail:
-        msg: |
-          Nexus .sha1 value ({{ nexus_sha1.stdout }}) does not match user-supplied checksum ({{ checksum_val }}). Aborting!
-      when:
-        - task == "download"
-        - OS == "ssh"
-        - nexus_sha1.stdout != checksum_val
-
-    - name: Calculate SHA1 of downloaded file
-      shell: sha1sum {{ server_download_path_lin }}/{{ file_name }} | awk '{print $1}'
-      register: actual_sha1
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Fail if actual file SHA1 does not match
-      fail:
-        msg: |
-          Actual file SHA1 ({{ actual_sha1.stdout }}) does not match .sha1 value ({{ nexus_sha1.stdout }}). File may be corrupted! Aborting!
-      when:
-        - task == "download"
-        - OS == "ssh"
-        - actual_sha1.stdout != nexus_sha1.stdout
-
-    - name: Delete downloaded file on checksum failure
-      file:
-        path: "{{ server_download_path_lin }}/{{ file_name }}"
-        state: absent
-      when:
-        - task == "download"
-        - OS == "ssh"
-        - actual_sha1.stdout != nexus_sha1.stdout
-
-    - name: Append result to audit log (in download folder)
-      lineinfile:
-        path: "{{ server_download_path_lin }}/download_audit.log"
-        create: yes
-        line: "{{ ansible_date_time.iso8601 }} | {{ file_name }} | {{ nexus_sha1.stdout }} | success"
-      when:
-        - task == "download"
-        - OS == "ssh"
-
-    - name: Show all SHA1 values for auditing (pretty lines)
+    - name: Summary (UAT upload)
       debug:
         msg:
-          - "SHA1 summary for {{ file_name }}:"
-          - "  - SHA1 from .sha1 file (Nexus): {{ nexus_sha1.stdout }}"
-          - "  - User-supplied SHA1           : {{ checksum_val }}"
-          - "  - Calculated SHA1 of file      : {{ actual_sha1.stdout }}"
-      when:
-        - task == "download"
+          - "Uploaded to UAT: {{ file_name }}"
+          - "SHA1: {{ sha1_val.stdout }}"
+          - "pkg rc: {{ upload_pkg.rc | default('n/a') }}  sha rc: {{ upload_sha.rc | default('n/a') }}"
+      when: 
+        - task == "upload"
         - OS == "ssh"
-
-    - name: Schedule deletion of all SHA1 and manifest files after 200 minutes
-      shell: |
-        (sleep 120; rm -f {{ server_download_path_lin }}/*.sha1 {{ server_download_path_lin }}/downloaded_checksum.txt) &
-      args:
-        executable: /bin/bash
-      when:
-        - OS == "ssh"
-        - task == "download"
-
-    - name: Success message (all checks passed)
-      debug:
-        msg: "Package downloaded and verified successfully. SHA1 integrity confirmed!"
-      when:
-        - task == "download"
-        - OS == "ssh"
+        - ENVNAME == "UAT"

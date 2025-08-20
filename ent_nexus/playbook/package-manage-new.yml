@@ -1,0 +1,308 @@
+# =============================================
+# Job A: Upload to UAT Nexus (with SHA1)
+# File: playbook_jobA_upload_uat.yml
+# =============================================
+- hosts: "{{ COMP }}"
+  gather_facts: true
+  vars_files:
+    - "../vars/myvars"
+  tasks:
+
+    - name: Check Connectivity
+      win_ping:
+      register: ping_status
+      when: OS == "winrm"
+
+    - name: Check Connectivity
+      ping:
+      register: ping_status
+      when: OS == "ssh"
+
+    - name: Print ping status (Linux)
+      debug:
+        msg: "{{ ping_status.ping }}"
+      when: OS == "ssh"
+
+    - name: Print ping status (Windows)
+      debug:
+        msg: "{{ ping_status }}"
+      when: OS == "winrm"
+
+    - name: Print variable values
+      debug:
+        msg:
+          - "server dest path is: {{ server_download_path }}"
+          - "repo dir is: {{ repo_dir }}"
+          - "source path is: {{ upload_source_path }}"
+          - "linux upload path is: {{ upload_source_path_lin }}"
+          - "nexus_pr path is: {{ nexus_repo_pr }}"
+    
+    - name: Sanity check (.zip required)
+      fail:
+        msg: "Package '{{ file_name }}' must end with .zip"
+      when: file_name is not regex('.*\\.zip$')
+
+    - name: Generate SHA1 for package (Linux)
+      shell: sha1sum {{ upload_source_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: sha1_val
+      when:
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Write .sha1 sidecar (Linux)
+      copy:
+        dest: "{{ upload_source_path_lin }}/{{ file_name }}.sha1"
+        content: "{{ sha1_val.stdout }}"
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Upload package to UAT Nexus (Linux)
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ upload_source_path_lin }}/{{ file_name }}
+        {{ nexus_uat_path }}/{{ file_name }}
+      register: upload_pkg
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Upload .sha1 to UAT Nexus (Linux)
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ upload_source_path_lin }}/{{ file_name }}.sha1
+        {{ nexus_uat_path }}/{{ file_name }}.sha1
+      register: upload_sha
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Summary (UAT upload)
+      debug:
+        msg:
+          - "Uploaded to UAT: {{ file_name }}"
+          - "SHA1: {{ sha1_val.stdout }}"
+          - "pkg rc: {{ upload_pkg.rc | default('n/a') }}  sha rc: {{ upload_sha.rc | default('n/a') }}"
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+
+---
+# =====================================================
+# Job B: Download from UAT Nexus & Verify on UAT VM
+# File: playbook_jobB_uat_download_test.yml
+# =====================================================
+- hosts: "{{ COMP }}"
+  gather_facts: true
+  vars_files:
+    - "../vars/myvars"
+  vars:
+    file_name: "{{ file_name }}"
+  tasks:
+    - name: Ensure destination directory exists (Linux)
+      file:
+        path: "{{ server_download_path_lin }}"
+        state: directory
+      when: OS == "ssh"
+
+    - name: Download package from UAT Nexus (Linux)
+      get_url:
+        url: "{{ nexus_uat_path }}/{{ file_name }}"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: OS == "ssh"
+
+    - name: Download .sha1 from UAT Nexus (Linux)
+      get_url:
+        url: "{{ nexus_uat_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: OS == "ssh"
+
+    - name: Read SHA1 from .sha1 (Linux)
+      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
+      register: nexus_sha1
+      when: OS == "ssh"
+
+    - name: Calculate SHA1 of downloaded file (Linux)
+      shell: sha1sum {{ server_download_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: local_sha1
+      when: OS == "ssh"
+
+    - name: Create audit manifest (Linux)
+      copy:
+        dest: "{{ server_download_path_lin }}/downloaded_checksum.txt"
+        content: "{{ file_name }} {{ nexus_sha1.stdout }}"
+      when: OS == "ssh"
+
+    - name: Fail if mismatch (Linux)
+      fail:
+        msg: "SHA1 mismatch: local={{ local_sha1.stdout }}  nexus={{ nexus_sha1.stdout }}"
+      when:
+        - OS == "ssh"
+        - local_sha1.stdout != nexus_sha1.stdout
+
+    - name: SHA1 summary (Linux)
+      debug:
+        msg:
+          - "SHA1 summary for {{ file_name }}:"
+          - "  - From UAT Nexus (.sha1): {{ nexus_sha1.stdout }}"
+          - "  - Calculated locally     : {{ local_sha1.stdout }}"
+
+    - name: Schedule cleanup (200 min) of .sha1 & manifest (Linux)
+      shell: |
+        (sleep 12000; rm -f {{ server_download_path_lin }}/*.sha1 {{ server_download_path_lin }}/downloaded_checksum.txt) &
+      args:
+        executable: /bin/bash
+      when: OS == "ssh"
+
+
+---
+# ==================================================================
+# Job C: Upload to PROD Nexus from UAT VM approved area (with SHA1)
+# File: playbook_jobC_upload_prod_from_uat_approved.yml
+# ==================================================================
+- hosts: "{{ COMP }}"
+  gather_facts: true
+  vars_files:
+    - "../vars/myvars"
+  vars:
+    file_name: "{{ file_name }}"
+    uat_approved_dir_lin: "{{ uat_approved_dir_lin | default(server_download_path_lin) }}"  # override if needed
+  tasks:
+    - name: Ensure approved file exists (Linux)
+      stat:
+        path: "{{ uat_approved_dir_lin }}/{{ file_name }}"
+      register: approved_pkg
+      when: OS == "ssh"
+
+    - name: Ensure approved checksum exists (Linux)
+      stat:
+        path: "{{ uat_approved_dir_lin }}/{{ file_name }}.sha1"
+      register: approved_sha
+      when: OS == "ssh"
+
+    - name: Guard: approved file or checksum missing
+      fail:
+        msg: "Approved artifact or .sha1 missing under {{ uat_approved_dir_lin }}"
+      when:
+        - OS == "ssh"
+        - (not approved_pkg.stat.exists) or (not approved_sha.stat.exists)
+
+    - name: Recompute SHA1 of approved file (Linux)
+      shell: sha1sum {{ uat_approved_dir_lin }}/{{ file_name }} | awk '{print $1}'
+      register: recomputed_sha1
+      when: OS == "ssh"
+
+    - name: Read approved .sha1 (Linux)
+      command: cat {{ uat_approved_dir_lin }}/{{ file_name }}.sha1
+      register: approved_sha1
+      when: OS == "ssh"
+
+    - name: Fail if approved file SHA1 != approved .sha1
+      fail:
+        msg: "Approved SHA1 mismatch: local={{ recomputed_sha1.stdout }}  sidecar={{ approved_sha1.stdout }}"
+      when:
+        - OS == "ssh"
+        - recomputed_sha1.stdout != approved_sha1.stdout
+
+    - name: Upload approved package to PROD Nexus (Linux)
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ uat_approved_dir_lin }}/{{ file_name }}
+        {{ nexus_pr_path }}/{{ file_name }}
+      register: pr_pkg
+      when: OS == "ssh"
+
+    - name: Upload approved .sha1 to PROD Nexus (Linux)
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ uat_approved_dir_lin }}/{{ file_name }}.sha1
+        {{ nexus_pr_path }}/{{ file_name }}.sha1
+      register: pr_sha
+      when: OS == "ssh"
+
+    - name: Summary (upload to PROD)
+      debug:
+        msg:
+          - "Uploaded to PROD: {{ file_name }}"
+          - "SHA1: {{ approved_sha1.stdout }}"
+          - "pkg rc: {{ pr_pkg.rc | default('n/a') }}  sha rc: {{ pr_sha.rc | default('n/a') }}"
+
+
+---
+# ======================================================
+# Job D: PROD Download & Verify before Deployment
+# File: playbook_jobD_prod_download_verify.yml
+# ======================================================
+- hosts: "{{ COMP }}"
+  gather_facts: true
+  vars_files:
+    - "../vars/myvars"
+  vars:
+    file_name: "{{ file_name }}"
+  tasks:
+    - name: Ensure destination directory exists (Linux)
+      file:
+        path: "{{ server_download_path_lin }}"
+        state: directory
+      when: OS == "ssh"
+
+    - name: Download package from PROD Nexus (Linux)
+      get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: OS == "ssh"
+
+    - name: Download .sha1 from PROD Nexus (Linux)
+      get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: OS == "ssh"
+
+    - name: Read PROD .sha1 (Linux)
+      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
+      register: prod_sha1
+      when: OS == "ssh"
+
+    - name: Calculate SHA1 of downloaded file (Linux)
+      shell: sha1sum {{ server_download_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: prod_local_sha1
+      when: OS == "ssh"
+
+    - name: Fail if mismatch (PROD)
+      fail:
+        msg: "SHA1 mismatch at PROD: local={{ prod_local_sha1.stdout }}  nexus={{ prod_sha1.stdout }}"
+      when:
+        - OS == "ssh"
+        - prod_local_sha1.stdout != prod_sha1.stdout
+
+    - name: SHA1 summary (PROD)
+      debug:
+        msg:
+          - "PROD verification for {{ file_name }}:"
+          - "  - From PROD Nexus (.sha1): {{ prod_sha1.stdout }}"
+          - "  - Calculated locally     : {{ prod_local_sha1.stdout }}"
+
+    - name: Schedule cleanup (200 min) of .sha1 & manifest (optional) (Linux)
+      shell: |
+        (sleep 12000; rm -f {{ server_download_path_lin }}/*.sha1 {{ server_download_path_lin }}/downloaded_checksum.txt) &
+      args:
+        executable: /bin/bash
+      when: OS == "ssh"
