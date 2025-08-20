@@ -288,7 +288,6 @@
         msg:
           - "SHA1 summary for {{ file_name }}:"
           - "  - From UAT Nexus (.sha1): {{ nexus_sha1.stdout | trim }}"
-          - "  - Calculated locally     : {{ local_sha1.stdout | trim }}"
           - "  - User-supplied (input)  : {{ checksum_val | default('N/A') }}"
       when:
         - task == "download"
