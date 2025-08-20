@@ -420,32 +420,45 @@
       win_stat:
         path: "{{ uat_approved_dir_win }}\\{{ file_name }}"
       register: approved_pkg
-      when: OS == "winrm"
+      when: 
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
 
     - name: Ensure approved checksum exists (Windows)
       win_stat:
         path: "{{ uat_approved_dir_win }}\\{{ file_name }}.sha1"
       register: approved_sha
-      when: OS == "winrm"
+      when: 
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
 
     - name: approved file or checksum missing
       fail:
         msg: "Approved artifact or .sha1 missing under {{ uat_approved_dir_win }}"
       when:
+        - task == "upload"
         - OS == "winrm"
+        - ENVNAME != "UAT"
         - (not approved_pkg.stat.exists) or (not approved_sha.stat.exists)
 
     - name: Read approved .sha1 (Windows)
       win_shell: |
         (Get-Content -Raw "{{ uat_approved_dir_win }}\{{ file_name }}.sha1").Trim() -split '\s+' | Select-Object -First 1
       register: approved_sha1
-      when: OS == "winrm"
+      when: 
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
 
     - name: Fail if file .sha1 != input checksum (Windows)
       fail:
         msg: "Checksum mismatch! input={{ checksum_val }}  file(.sha1)={{ approved_sha1.stdout | trim }}"
       when:
+        - task == "upload"
         - OS == "winrm"
+        - ENVNAME != "UAT"
         - checksum_val is defined
         - checksum_val | length > 0
         - (approved_sha1.stdout | trim) != checksum_val
@@ -456,7 +469,10 @@
         --upload-file "{{ uat_approved_dir_win }}\{{ file_name }}"
         "{{ nexus_pr_path }}/{{ file_name }}"
       register: pr_pkg
-      when: OS == "winrm"
+      when: 
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
 
     - name: Upload approved .sha1 to PROD Nexus (Windows)
       win_shell: >
@@ -464,7 +480,10 @@
         --upload-file "{{ uat_approved_dir_win }}\{{ file_name }}.sha1"
         "{{ nexus_pr_path }}/{{ file_name }}.sha1"
       register: pr_sha
-      when: OS == "winrm"
+      when: 
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
 
     - name: Summary (upload to PROD)
       debug:
@@ -473,6 +492,10 @@
           - "SHA1 (from .sha1): {{ approved_sha1.stdout | trim }}"
           - "Input SHA1       : {{ checksum_val | default('N/A') }}"
           - "pkg rc: {{ pr_pkg.rc | default('n/a') }}  sha rc: {{ pr_sha.rc | default('n/a') }}"
+      when:
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
 
 ##### Download Package to Linux Prod VM #####
 
@@ -620,3 +643,7 @@
           - "  - From PROD Nexus (.sha1): {{ prod_sha1.stdout | trim }}"
           - "  - Calculated locally     : {{ prod_local_sha1.stdout | trim }}"
           - "  - Input SHA1             : {{ checksum_val | default('N/A') }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
