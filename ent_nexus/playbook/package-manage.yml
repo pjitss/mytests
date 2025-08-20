@@ -150,8 +150,6 @@
         msg:
           - "Uploaded to UAT: {{ file_name }}"
           - "SHA1: {{ sha1_val.stdout | trim }}"
-          - "pkg rc: {{ (upload_pkg | default({})).rc | default('n/a') }}"
-          - "sha rc: {{ (upload_sha | default({})).rc | default('n/a') }}"
       when:
         - task == "upload"
         - OS == "winrm"
