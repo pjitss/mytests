@@ -99,7 +99,7 @@
         path: "{{ server_download_path_lin }}"
         state: directory
       when:  
-        - task == "download"
+        - task == "upload"
         - OS == "ssh"
         - ENVNAME == "UAT"
 
@@ -164,3 +164,93 @@
         - task == "download"
         - OS == "ssh"
         - ENVNAME == "UAT"
+
+##### Upload the Package to Nexus Prod Folder #####
+
+    - name: Ensure approved file exists (Linux)
+      stat:
+        path: "{{ server_download_path_lin }}/{{ file_name }}"
+      register: approved_pkg
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Ensure approved checksum exists (Linux)
+      stat:
+        path: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
+      register: approved_sha
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: approved file or checksum missing
+      fail:
+        msg: "Approved artifact or .sha1 missing under {{ server_download_path_lin }}"
+      when:
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+        - (not approved_pkg.stat.exists) or (not approved_sha.stat.exists)
+
+    - name: Read approved .sha1 (Linux)
+      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
+      register: approved_sha1
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Normalize checksum from .sha1 (first token only)
+      set_fact:
+        file_sha1: "{{ approved_sha1.stdout | regex_replace('\\s.*','') }}"
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Fail if file .sha1 != input checksum
+      fail:
+        msg: "Checksum mismatch! input={{ checksum_val }}  file(.sha1)={{ file_sha1 }}"
+      when:
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+        - checksum_val is defined
+        - checksum_val | length > 0
+        - file_sha1 != checksum_val
+
+    - name: Upload approved package to PROD Nexus (Linux)
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ server_download_path_lin }}/{{ file_name }}
+        {{ nexus_pr_path }}/{{ file_name }}
+      register: pr_pkg
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Upload approved .sha1 to PROD Nexus (Linux)
+      shell: >
+        curl -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file {{ server_download_path_lin }}/{{ file_name }}.sha1
+        {{ nexus_pr_path }}/{{ file_name }}.sha1
+      register: pr_sha
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
+
+    - name: Summary (upload to PROD)
+      debug:
+        msg:
+          - "Uploaded to PROD: {{ file_name }}"
+          - "SHA1 (from .sha1): {{ file_sha1 }}"
+          - "Input SHA1       : {{ checksum_val | default('N/A') }}"
+          - "pkg rc: {{ pr_pkg.rc | default('n/a') }}  sha rc: {{ pr_sha.rc | default('n/a') }}"
+      when: 
+        - task == "upload"
+        - OS == "ssh"
+        - ENVNAME != "UAT"
