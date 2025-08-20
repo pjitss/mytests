@@ -41,7 +41,7 @@
       fail:
         msg: "Package '{{ file_name }}' must end with .zip"
       when: file_name is not regex('.*\\.zip$')
-
+##### Upload Linux Package to Nexus UAT folder #####
     - name: Generate SHA1 for package (Linux)
       shell: sha1sum {{ upload_source_path_lin }}/{{ file_name }} | awk '{print $1}'
       register: sha1_val
@@ -92,7 +92,57 @@
         - OS == "ssh"
         - ENVNAME == "UAT"
 
-##### Download Linux Package to Linux UAt VM #####
+##### Upload Windows Package to the Nexus UAt folder #####
+
+    - name: Generate SHA1 for package (Windows)
+      win_shell: |
+        $hash = (Get-FileHash -Algorithm SHA1 "{{ upload_source_path }}\{{ file_name }}").Hash
+        $hash
+      register: sha1_val
+      when:
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Write .sha1 sidecar (Windows)
+      win_copy:
+        dest: "{{ upload_source_path }}\\{{ file_name }}.sha1"
+        content: "{{ sha1_val.stdout | trim }}"
+      when:
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Upload package to UAT Nexus (Windows)
+      win_shell: >
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file "{{ upload_source_path }}\{{ file_name }}"
+        "{{ nexus_uat_path }}/{{ file_name }}"
+      register: upload_pkg
+      when:
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Upload .sha1 to UAT Nexus (Windows)
+      win_shell: >
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file "{{ upload_source_path }}\{{ file_name }}.sha1"
+        "{{ nexus_uat_path }}/{{ file_name }}.sha1"
+      register: upload_sha
+      when:
+        - task == "upload"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Summary (UAT upload)
+      debug:
+        msg:
+          - "Uploaded to UAT: {{ file_name }}"
+          - "SHA1: {{ sha1_val.stdout | trim }}"
+          - "pkg rc: {{ upload_pkg.rc | default('n/a') }}  sha rc: {{ upload_sha.rc | default('n/a') }}"
+
+##### Download Linux Package to Linux UAT VM #####
 
     - name: Ensure destination directory exists (Linux)
       file:
@@ -165,7 +215,99 @@
         - OS == "ssh"
         - ENVNAME == "UAT"
 
-##### Upload the Package to Nexus Prod Folder #####
+##### Download Windows Package to Windows UAT VM #####
+
+    - name: Download package from UAT Nexus (Windows)
+      win_get_url:
+        url: "{{ nexus_uat_path }}/{{ file_name }}"
+        dest: "{{ server_download_path }}\\{{ file_name }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Download .sha1 from UAT Nexus (Windows)
+      win_get_url:
+        url: "{{ nexus_uat_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path }}\\{{ file_name }}.sha1"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Read SHA1 from .sha1 (Windows)
+      win_shell: |
+        (Get-Content -Raw "{{ server_download_path }}\{{ file_name }}.sha1").Trim() -split '\s+' | Select-Object -First 1
+      register: nexus_sha1
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Calculate SHA1 of downloaded file (Windows)
+      win_shell: |
+        (Get-FileHash -Algorithm SHA1 "{{ server_download_path }}\{{ file_name }}").Hash
+      register: local_sha1
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Create audit manifest (Windows)
+      win_copy:
+        dest: "{{ server_download_path }}\\downloaded_checksum.txt"
+        content: "{{ file_name }} nexus={{ nexus_sha1.stdout | trim }} local={{ local_sha1.stdout | trim }} user={{ checksum_val | default('N/A') }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+
+    - name: Fail if Nexus SHA1 != user-supplied checksum (Windows)
+      fail:
+        msg: "User checksum mismatch vs Nexus: user={{ checksum_val }}  nexus={{ nexus_sha1.stdout | trim }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+        - checksum_val is defined
+        - checksum_val | length > 0
+        - (nexus_sha1.stdout | trim) != checksum_val
+
+    - name: Fail if local SHA1 != user-supplied checksum (Windows)
+      fail:
+        msg: "User checksum mismatch vs Local: user={{ checksum_val }}  local={{ local_sha1.stdout | trim }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+        - checksum_val is defined
+        - checksum_val | length > 0
+        - (local_sha1.stdout | trim) != checksum_val
+
+    - name: Fail if mismatch nexus vs local (Windows)
+      fail:
+        msg: "SHA1 mismatch: local={{ local_sha1.stdout | trim }}  nexus={{ nexus_sha1.stdout | trim }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME == "UAT"
+        - (local_sha1.stdout | trim) != (nexus_sha1.stdout | trim)
+
+    - name: SHA1 summary (Windows)
+      debug:
+        msg:
+          - "SHA1 summary for {{ file_name }}:"
+          - "  - From UAT Nexus (.sha1): {{ nexus_sha1.stdout | trim }}"
+          - "  - Calculated locally     : {{ local_sha1.stdout | trim }}"
+          - "  - User-supplied (input)  : {{ checksum_val | default('N/A') }}"
+
+##### Upload the Linux Package to Nexus Prod Folder #####
 
     - name: Ensure approved file exists (Linux)
       stat:
@@ -255,6 +397,66 @@
         - OS == "ssh"
         - ENVNAME != "UAT"
 
+##### Upload the Win Package to Nexus Prod Folder #####
+
+    - name: Ensure approved file exists (Windows)
+      win_stat:
+        path: "{{ uat_approved_dir_win }}\\{{ file_name }}"
+      register: approved_pkg
+      when: OS == "winrm"
+
+    - name: Ensure approved checksum exists (Windows)
+      win_stat:
+        path: "{{ uat_approved_dir_win }}\\{{ file_name }}.sha1"
+      register: approved_sha
+      when: OS == "winrm"
+
+    - name: Guard: approved file or checksum missing
+      fail:
+        msg: "Approved artifact or .sha1 missing under {{ uat_approved_dir_win }}"
+      when:
+        - OS == "winrm"
+        - (not approved_pkg.stat.exists) or (not approved_sha.stat.exists)
+
+    - name: Read approved .sha1 (Windows)
+      win_shell: |
+        (Get-Content -Raw "{{ uat_approved_dir_win }}\{{ file_name }}.sha1").Trim() -split '\s+' | Select-Object -First 1
+      register: approved_sha1
+      when: OS == "winrm"
+
+    - name: Fail if file .sha1 != input checksum (Windows)
+      fail:
+        msg: "Checksum mismatch! input={{ checksum_val }}  file(.sha1)={{ approved_sha1.stdout | trim }}"
+      when:
+        - OS == "winrm"
+        - checksum_val is defined
+        - checksum_val | length > 0
+        - (approved_sha1.stdout | trim) != checksum_val
+
+    - name: Upload approved package to PROD Nexus (Windows)
+      win_shell: >
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file "{{ uat_approved_dir_win }}\{{ file_name }}"
+        "{{ nexus_pr_path }}/{{ file_name }}"
+      register: pr_pkg
+      when: OS == "winrm"
+
+    - name: Upload approved .sha1 to PROD Nexus (Windows)
+      win_shell: >
+        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        --upload-file "{{ uat_approved_dir_win }}\{{ file_name }}.sha1"
+        "{{ nexus_pr_path }}/{{ file_name }}.sha1"
+      register: pr_sha
+      when: OS == "winrm"
+
+    - name: Summary (upload to PROD)
+      debug:
+        msg:
+          - "Uploaded to PROD: {{ file_name }}"
+          - "SHA1 (from .sha1): {{ approved_sha1.stdout | trim }}"
+          - "Input SHA1       : {{ checksum_val | default('N/A') }}"
+          - "pkg rc: {{ pr_pkg.rc | default('n/a') }}  sha rc: {{ pr_sha.rc | default('n/a') }}"
+
 ##### Download Package to Linux Prod VM #####
 
     - name: Ensure destination directory exists (Linux)
@@ -322,3 +524,82 @@
           - "  - From PROD Nexus (.sha1): {{ prod_sha1.stdout }}"
           - "  - Calculated locally     : {{ prod_local_sha1.stdout }}"
           - "Input SHA1       : {{ checksum_val | default('N/A') }}"
+
+##### Download Package to Win Prod VM #####
+
+    - name: Ensure destination directory exists (Windows)
+      win_file:
+        path: "{{ server_download_path }}"
+        state: directory
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+
+    - name: Download package from PROD Nexus (Windows)
+      win_get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}"
+        dest: "{{ server_download_path }}\\{{ file_name }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+
+    - name: Download .sha1 from PROD Nexus (Windows)
+      win_get_url:
+        url: "{{ nexus_pr_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path }}\\{{ file_name }}.sha1"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+
+    - name: Read PROD .sha1 (Windows)
+      win_shell: |
+        (Get-Content -Raw "{{ server_download_path }}\{{ file_name }}.sha1").Trim() -split '\s+' | Select-Object -First 1
+      register: prod_sha1
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+
+    - name: Calculate SHA1 of downloaded file (Windows)
+      win_shell: |
+        (Get-FileHash -Algorithm SHA1 "{{ server_download_path }}\{{ file_name }}").Hash
+      register: prod_local_sha1
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+
+    - name: Fail if Nexus SHA1 != user-supplied checksum (Windows)
+      fail:
+        msg: "User checksum mismatch vs Nexus: user={{ checksum_val }}  nexus={{ prod_sha1.stdout | trim }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+        - prod_sha1.stdout | trim != checksum_val
+
+    - name: Fail if local != nexus (Windows)
+      fail:
+        msg: "SHA1 mismatch at PROD: local={{ prod_local_sha1.stdout | trim }}  nexus={{ prod_sha1.stdout | trim }}"
+      when:
+        - task == "download"
+        - OS == "winrm"
+        - ENVNAME != "UAT"
+        - (prod_local_sha1.stdout | trim) != (prod_sha1.stdout | trim)
+
+    - name: SHA1 summary (PROD Windows)
+      debug:
+        msg:
+          - "PROD verification for {{ file_name }}:"
+          - "  - From PROD Nexus (.sha1): {{ prod_sha1.stdout | trim }}"
+          - "  - Calculated locally     : {{ prod_local_sha1.stdout | trim }}"
+          - "  - Input SHA1             : {{ checksum_val | default('N/A') }}"
