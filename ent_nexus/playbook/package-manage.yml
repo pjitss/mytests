@@ -91,3 +91,76 @@
         - task == "upload"
         - OS == "ssh"
         - ENVNAME == "UAT"
+
+##### Download Linux Package to Linux UAt VM #####
+
+    - name: Ensure destination directory exists (Linux)
+      file:
+        path: "{{ server_download_path_lin }}"
+        state: directory
+      when:  
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Download package from UAT Nexus (Linux)
+      get_url:
+        url: "{{ nexus_uat_path }}/{{ file_name }}"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Download .sha1 from UAT Nexus (Linux)
+      get_url:
+        url: "{{ nexus_uat_path }}/{{ file_name }}.sha1"
+        dest: "{{ server_download_path_lin }}/{{ file_name }}.sha1"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Read SHA1 from .sha1 (Linux)
+      command: cat {{ server_download_path_lin }}/{{ file_name }}.sha1
+      register: nexus_sha1
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Calculate SHA1 of downloaded file (Linux)
+      shell: sha1sum {{ server_download_path_lin }}/{{ file_name }} | awk '{print $1}'
+      register: local_sha1
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
+
+    - name: Fail if Nexus SHA1 != user-supplied checksum (Linux)
+      fail:
+        msg: "User checksum mismatch vs Nexus: user={{ checksum_val }}  nexus={{ nexus_sha1.stdout }}"
+      when:
+        - OS == "ssh"
+        - task == "download"
+        - ENVNAME == "UAT"
+        - checksum_val is defined
+        - checksum_val | length > 0
+        - nexus_sha1.stdout != checksum_val
+
+    - name: SHA1 summary (Linux)
+      debug:
+        msg:
+          - "SHA1 summary for {{ file_name }}:"
+          - "  - From UAT Nexus (.sha1): {{ nexus_sha1.stdout }}"
+          - "  - User-supplied (input)  : {{ checksum_val | default('N/A') }}"
+      when: 
+        - task == "download"
+        - OS == "ssh"
+        - ENVNAME == "UAT"
