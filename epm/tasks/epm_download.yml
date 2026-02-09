@@ -11,16 +11,12 @@
       win_file:
         path: "{{ server_download_path }}"
         state: directory
-      when:
-        - TASK == "download"
 
     # 2) Check if file already exists
     - name: Check if file already exists on win dest server
       win_stat:
         path: "{{ server_download_path }}\\{{ FILENAME }}"
       register: file_result
-      when:
-        - TASK == "download"
 
     # 3) Download only if not exists
     - name: Download package file from Nexus to win dest server
@@ -33,12 +29,9 @@
         force_basic_auth: true
       register: dl_result
       when:
-        - TASK == "download"
         - not file_result.stat.exists
 
     # 4) Print status
     - name: Print download status
       debug:
         msg: "file downloaded"
-      when:
-        - TASK == "download"

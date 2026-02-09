@@ -19,25 +19,17 @@
       win_stat:
         path: "{{ upload_source_path }}\\{{ package_name }}"
       register: pkg_stat
-      when:
-        - TASK == "upload"
-        - OS == "winrm"
 
     - name: Fail if package not found
       fail:
         msg: "Package not found at {{ upload_source_path }}\\{{ package_name }}"
       when: 
         - not pkg_stat.stat.exists
-        - TASK == "upload"
-        - OS == "winrm"
 
     - name: Build full source file path
       set_fact:
         source_file: "{{ upload_source_path }}\\{{ package_name }}"
         artifact_name: "TestPackage_{{ date_time }}.zip"
-      when:
-        - TASK == "upload"
-        - OS == "winrm"
 
     - name: Upload the Package to Nexus {{ENVNAME}} dir from a Win source server
       win_shell: >
@@ -45,13 +37,7 @@
         --upload-file "{{ source_file }}"
         "{{ nexus_np_path }}{{ ENVNAME }}/{{ artifact_name }}"
       register: upload_pkg
-      when:
-        - TASK == "upload"
-        - OS == "winrm"
-
+    
     - name: Print upload status
       debug:
         msg: "Uploaded to {{ENVNAME}} dir: {{ artifact_name }}"
-      when:
-        - TASK == "upload"
-        - OS == "winrm"
