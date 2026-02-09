@@ -3,7 +3,7 @@
   #become: yes
   become_method: runas
   vars_files:
-    - epm/vars/epm.vars
+    - ../vars/epm.vars
   tasks:
 
     # 1) Ensure destination directory exists
