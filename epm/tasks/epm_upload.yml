@@ -3,7 +3,7 @@
   #become: yes
   become_method: runas
   vars_files:
-    - epm/vars/epm.vars
+    - ../vars/epm.vars
   tasks:
 
     - name: Verify if file extension is zip
