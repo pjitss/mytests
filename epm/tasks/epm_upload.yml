@@ -34,8 +34,8 @@
 - name: Upload the Package to Nexus {{ENVNAME}} dir from a Win source server
   win_shell: >
     curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
-    --upload-file "{{ ENVNAME }}/{{ source_file }}"
-    "{{ nexus_np_path }}/{{ artifact_name }}"
+    --upload-file "{{ source_file }}"
+    "{{ nexus_np_path }}{{ ENVNAME }}/{{ artifact_name }}"
   register: upload_pkg
   when:
     - TASK == "upload"
