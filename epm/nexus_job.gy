@@ -4,7 +4,7 @@ node {
     cleanWs()
 
     stage ('git repo checkout') {
-        git branch: 'jits', url: 'git@github.com:pjitss/mytests.git'
+        git branch: 'jits_1', url: 'git@github.com:pjitss/mytests.git'
     }
 
     stage('verify connection type') {
