@@ -1,0 +1,40 @@
+
+node {
+    
+    cleanWs()
+
+    stage ('git repo checkout') {
+        git branch: 'jits', url: 'git@github.com:pjitss/mytests.git'
+    }
+
+    stage('verify connection type') {
+    def connectionType = sh(
+        script: '''
+            if [ "${TASK}" = "upload" ] || [ "${TASK}" = "migrate" ]; then
+                grep -A1 "\\[${TASK}\\]" playbooks/env/${ENVNAME}/${APPNAME}/${APPNAME}.inv | grep ansible_connection | awk -F 'ansible_connection=' '{print $2}' | awk '{print $1}' | tr -d " "
+            fi
+        ''',
+        returnStdout: true
+    ).trim()
+
+    print "connection type is : ${connectionType}"
+
+    def COMP = ""
+    if (TASK == "upload") {
+        COMP = "${TASK}"
+    } else if (TASK == "download") {
+        COMP = "${TASK}"
+    }
+
+        ansiblePlaybook(
+            playbook: "epm/EPM_PackageManage.yml",
+            inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
+            extraVars: [
+                ENVNAME: "${ENVNAME}",
+                task   : "${TASK}",
+                COMP   : "${COMP}",
+                OS     : "${connectionType}"
+            ]
+        )
+    }    
+}
