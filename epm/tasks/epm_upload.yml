@@ -33,11 +33,20 @@
 
     - name: Upload the Package to Nexus {{ENVNAME}} dir from a Win source server
       win_shell: >
-        curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
+        curl.exe -v -s -k -w "%{http_code}" -u {{ nexus_username }}:{{ nexus_password }}
         --upload-file "{{ source_file }}"
         "{{ nexus_np_path }}{{ ENVNAME }}/{{ artifact_name }}"
-      register: upload_pkg
+      register: upload_rslt
     
-    - name: Print upload status
+    - name: Confirm Nexus upload success
+      fail:
+        msg: "Nexus upload failed for {{ artifact_name }}. HTTP code: {{ upload_result.stdout }}"
+      when:
+        - TASK == "upload"
+        - upload_rslt.stdout not in ["200", "201", "204"]
+
+    - name: Upload confirmation
       debug:
-        msg: "Uploaded to {{ENVNAME}} dir: {{ artifact_name }}"
+        msg: "Nexus upload successful for {{ artifact_name }}"
+      when:
+        - upload_rslt.stdout in ["200", "201", "204"]
