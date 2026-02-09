@@ -1,7 +1,7 @@
-[UPLOAD]
+[upload]
 192.168.0.133
 
-[DOWNLOAD]
+[download]
 192.168.0.133
 
 [all:vars]
