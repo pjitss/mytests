@@ -10,7 +10,7 @@
 # 2) Check if file already exists
 - name: Check if file already exists on win dest server
   win_stat:
-    path: "{{ server_download_path }}\\{{ artifact_name }}"
+    path: "{{ server_download_path }}\\{{ FILENAME }}"
   register: file_result
   when:
     - TASK == "download"
@@ -19,8 +19,8 @@
 # 3) Download only if not exists
 - name: Download package file from Nexus to win dest server
   win_get_url:
-    url: "{{ nexus_np_path }}{{ ENVNAME }}/{{ artifact_name }}"
-    dest: "{{ server_download_path }}\\{{ artifact_name }}"
+    url: "{{ nexus_np_path }}{{ ENVNAME }}/{{ FILENAME }}"
+    dest: "{{ server_download_path }}\\{{ FILENAME }}"
     url_username: "{{ nexus_username }}"
     url_password: "{{ nexus_password }}"
     validate_certs: false
@@ -36,10 +36,10 @@
   debug:
     msg: >-
       {{
-        'File already exists, skipping download: ' ~ server_download_path ~ '\\' ~ artifact_name
+        'File already exists, skipping download: ' ~ server_download_path ~ '\\' ~ {{ FILENAME }}'
         if file_result.stat.exists
         else
-        'Downloaded to: ' ~ server_download_path ~ '\\' ~ artifact_name
+        'Downloaded to: ' ~ server_download_path ~ '\\' ~{{ FILENAME }}'
       }}
   when:
     - TASK == "download"
