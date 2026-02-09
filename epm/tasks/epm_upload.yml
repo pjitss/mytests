@@ -1,7 +1,7 @@
 - name: Verify if file extension is zip
   fail:
-    msg: "Package file '{{ file_name }}' not having .zip extension, failing the pipeline"
-  when: file_name is not regex(".*\\.zip$")
+    msg: "Package file '{{ package_name }}' not having .zip extension, failing the pipeline"
+  when: package_name is not regex(".*\\.zip$")
 
 - name: Create timestamp
   set_fact:
