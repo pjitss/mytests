@@ -1,4 +1,4 @@
-- hosts: "{{ targethost }}"
+- hosts: "{{ COMP }}"
   gather_facts: true
   become: yes
   become_method: runas
@@ -8,8 +8,8 @@
     
     - name: epm upload job
       include_tasks: tasks/epm_upload.yml
-      when: TASK == 'UPLOAD'
+      when: TASK == 'upload'
 
     - name: epm download job
       include_tasks: tasks/epm_download.yml
-      when: TASK == 'DOWNLOAD'
+      when: TASK == 'download'
