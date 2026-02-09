@@ -1,41 +1,35 @@
-
 node {
-    
+
     cleanWs()
 
-    stage ('git repo checkout') {
+    stage('git repo checkout') {
         git branch: 'jits_1', url: 'git@github.com:pjitss/mytests.git'
     }
 
-    stage('verify connection type') {
-    def connectionType = sh(
-        script: '''
-            if [ "${TASK}" = "upload" ] || [ "${TASK}" = "download" ]; then
-                grep -A1 "\\[${TASK}\\]" epm/env/${ENVNAME}/${ENVNAME}.inv | grep ansible_connection | awk -F 'ansible_connection=' '{print $2}' | awk '{print $1}' | tr -d " "
-            fi
-        ''',
-        returnStdout: true
-    ).trim()
-
-    print "connection type is : ${connectionType}"
-
-    def COMP = ""
     if (TASK == "upload") {
-        COMP = "${TASK}"
-    } else if (TASK == "download") {
-        COMP = "${TASK}"
+        stage('Execute upload job') {
+            ansiblePlaybook(
+                playbook: "epm/tasks/epm_upload.yml",
+                inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
+                extraVars: [
+                    ENVNAME : "${ENVNAME}",
+                    TASK    : "${TASK}"
+                ]
+            )
+        }
     }
 
-        ansiblePlaybook(
-            playbook: "epm/EPM_PackageManage.yml",
-            inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
-            extraVars: [
-                ENVNAME: "${ENVNAME}",
-                TASK   : "${TASK}",
-                COMP   : "${COMP}",
-                OS     : "${connectionType}",
-                FILENAME     : "${FILENAME}"
-            ]
-        )
-    }    
+    if (TASK == "download") {
+        stage('Execute download job') {
+            ansiblePlaybook(
+                playbook: "epm/tasks/epm_download.yml",
+                inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
+                extraVars: [
+                    ENVNAME : "${ENVNAME}",
+                    TASK    : "${TASK}",
+                    FILENAME: "${FILENAME}"
+                ]
+            )
+        }
+    }
 }
