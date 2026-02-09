@@ -34,13 +34,7 @@
 # 4) Print status
 - name: Print download status
   debug:
-    msg: >-
-      {{
-        'File already exists, skipping download: ' ~ server_download_path ~ '\\' ~ {{ FILENAME }}'
-        if file_result.stat.exists
-        else
-        'Downloaded to: ' ~ server_download_path ~ '\\' ~{{ FILENAME }}'
-      }}
+    msg: "file downloaded"
   when:
     - TASK == "download"
     - OS == "winrm"
