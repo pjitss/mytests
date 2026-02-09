@@ -11,7 +11,7 @@ node {
     def connectionType = sh(
         script: '''
             if [ "${TASK}" = "upload" ] || [ "${TASK}" = "migrate" ]; then
-                grep -A1 "\\[${TASK}\\]" playbooks/env/${ENVNAME}/${APPNAME}/${APPNAME}.inv | grep ansible_connection | awk -F 'ansible_connection=' '{print $2}' | awk '{print $1}' | tr -d " "
+                grep -A1 "\\[${TASK}\\]" epm/env/${ENVNAME}/${ENVNAME}.inv | grep ansible_connection | awk -F 'ansible_connection=' '{print $2}' | awk '{print $1}' | tr -d " "
             fi
         ''',
         returnStdout: true
