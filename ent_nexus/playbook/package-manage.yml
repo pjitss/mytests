@@ -187,7 +187,7 @@
         validate_certs: false
       when: 
         - task == "download"
-        - OS == "ssh"
+        - OS == "ssh" 
         - ENVNAME == "UAT"
 
     - name: Read SHA1 from .sha1 (Linux)

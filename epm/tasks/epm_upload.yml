@@ -1,0 +1,46 @@
+- name: Verify if file extension is zip
+  fail:
+    msg: "Package file '{{ file_name }}' not having .zip extension, failing the pipeline"
+  when: file_name is not regex(".*\\.zip$")
+
+- name: Create timestamp
+  set_fact:
+    date_time: "{{ lookup('pipe','date +%Y%m%d_%H%M%S') }}"
+
+- name: Ensure package exists in upload directory
+  win_stat:
+    path: "{{ upload_source_path }}\\{{ package_name }}"
+  register: pkg_stat
+  when:
+    - task == "upload"
+    - OS == "winrm"
+
+- name: Fail if package not found
+  fail:
+    msg: "Package not found at {{ upload_source_path }}\\{{ package_name }}"
+  when: 
+    - not pkg_stat.stat.exists
+    - task == "upload"
+    - OS == "winrm"
+
+- name: Build full source file path
+  set_fact:
+    source_file: "{{ upload_source_path }}\\{{ package_name }}"
+    artifact_name: "TestPackage_{{ date_time }}.zip"
+
+- name: Upload the Package to Nexus {{ENVNAME}} dir from a Win source server
+  win_shell: >
+    curl.exe -v -k -u {{ nexus_username }}:{{ nexus_password }}
+    --upload-file "{{ source_file }}"
+    "{{ nexus_np_path }}/{{ artifact_name }}"
+  register: upload_pkg
+  when:
+    - task == "upload"
+    - OS == "winrm"
+
+- name: Print upload status
+  debug:
+    msg: "Uploaded to {{ENVNAME}} dir: {{ artifact_name }}"
+  when:
+    - task == "upload"
+    - OS == "winrm"

@@ -1,0 +1,15 @@
+- hosts: "{{ targethost }}"
+  gather_facts: true
+  become: yes
+  become_method: runas
+  vars_files:
+    - vars/epm.vars
+  tasks:
+    
+    - name: epm upload job
+      include_tasks: tasks/epm_upload.yml
+      when: TASK == 'UPLOAD'
+
+    - name: epm download job
+      include_tasks: tasks/epm_download.yml
+      when: TASK == 'DOWNLOAD'
