@@ -33,7 +33,7 @@ node {
                 ENVNAME: "${ENVNAME}",
                 TASK   : "${TASK}",
                 COMP   : "${COMP}",
-                OS     : "${connectionType}"
+                OS     : "${connectionType}",
                 FILENAME     : "${FILENAME}"
             ]
         )
