@@ -4,7 +4,7 @@
     path: "{{ server_download_path }}"
     state: directory
   when:
-    - task == "download"
+    - TASK == "download"
     - OS == "winrm"
 
 # 2) Check if file already exists
@@ -13,13 +13,13 @@
     path: "{{ server_download_path }}\\{{ artifact_name }}"
   register: file_result
   when:
-    - task == "download"
+    - TASK == "download"
     - OS == "winrm"
 
 # 3) Download only if not exists
 - name: Download package file from Nexus to win dest server
   win_get_url:
-    url: "{{ nexus_np_path }}/{{ artifact_name }}"
+    url: "{{ nexus_np_path }}{{ ENVNAME }}/{{ artifact_name }}"
     dest: "{{ server_download_path }}\\{{ artifact_name }}"
     url_username: "{{ nexus_username }}"
     url_password: "{{ nexus_password }}"
@@ -27,7 +27,7 @@
     force_basic_auth: true
   register: dl_result
   when:
-    - task == "download"
+    - TASK == "download"
     - OS == "winrm"
     - not file_result.stat.exists
 
@@ -42,5 +42,5 @@
         'Downloaded to: ' ~ server_download_path ~ '\\' ~ artifact_name
       }}
   when:
-    - task == "download"
+    - TASK == "download"
     - OS == "winrm"
