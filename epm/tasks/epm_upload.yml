@@ -13,7 +13,7 @@
 
     - name: Create timestamp
       set_fact:
-        date_time: "{{ lookup('pipe','date +%Y%m%d_%H%M%S') }}"
+        date_time: "{{ lookup('pipe', 'date +%b%d_%Y_%H-%M-%S') }}"
 
     - name: Ensure package exists in upload directory
       win_stat:
