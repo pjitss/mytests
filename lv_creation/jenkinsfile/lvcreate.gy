@@ -1,0 +1,18 @@
+node {
+
+    cleanWs()
+
+    stage('git repo checkout') {
+        git branch: '$branch', url: 'git@github.com:pjitss/mytests.git'
+    }
+
+        stage('Execute lv create job') {
+            ansiblePlaybook(
+                playbook: "lv_creation/tasks/lvcreate.yml",
+                inventory: "lv_creation/env/${ENVNAME}/${ENVNAME}.inv",
+                extraVars: [
+                    ENVNAME : "${ENVNAME}"
+                ]
+            )
+        }
+}
