@@ -1,0 +1,35 @@
+node {
+
+    cleanWs()
+
+    stage('git repo checkout') {
+        git branch: 'jits_1', url: 'git@github.com:pjitss/mytests.git'
+    }
+
+    if (TASK == "upload") {
+        stage('Execute upload job') {
+            ansiblePlaybook(
+                playbook: "epm/tasks/epm_upload.yml",
+                inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
+                extraVars: [
+                    ENVNAME : "${ENVNAME}",
+                    TASK    : "${TASK}"
+                ]
+            )
+        }
+    }
+
+    if (TASK == "download") {
+        stage('Execute download job') {
+            ansiblePlaybook(
+                playbook: "epm/tasks/epm_download.yml",
+                inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
+                extraVars: [
+                    ENVNAME : "${ENVNAME}",
+                    TASK    : "${TASK}",
+                    FILENAME: "${FILENAME}"
+                ]
+            )
+        }
+    }
+}

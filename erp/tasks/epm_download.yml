@@ -1,0 +1,37 @@
+- hosts: download
+  gather_facts: true
+  #become: yes
+  become_method: runas
+  vars_files:
+    - ../vars/epm.vars
+  tasks:
+
+    # 1) Ensure destination directory exists
+    - name: Ensure destination server directory exists
+      win_file:
+        path: "{{ server_download_path }}"
+        state: directory
+
+    # 2) Check if file already exists
+    - name: Check if file already exists on win dest server
+      win_stat:
+        path: "{{ server_download_path }}\\{{ FILENAME }}"
+      register: file_result
+
+    # 3) Download only if not exists
+    - name: Download package file from Nexus to win dest server
+      win_get_url:
+        url: "{{ nexus_np_path }}{{ ENVNAME }}/{{ FILENAME }}"
+        dest: "{{ server_download_path }}\\{{ FILENAME }}"
+        url_username: "{{ nexus_username }}"
+        url_password: "{{ nexus_password }}"
+        validate_certs: false
+        force_basic_auth: true
+      register: dl_result
+      when:
+        - not file_result.stat.exists
+
+    # 4) Print status
+    - name: Print download status
+      debug:
+        msg: "file downloaded"

@@ -1,0 +1,63 @@
+---
+- name: lv creation
+  hosts: all
+  become: yes
+  gather_facts: false
+  vars_files:
+    - ../vars/lv.vars
+  tasks:
+    - name: Check PV device exists
+      stat:
+        path: "{{ pv_device }}"
+      register: pv_dev_stat
+
+    - name: Fail if PV device not found
+      fail:
+        msg: "PV device {{ pv_device }} not found. Check disk name."
+      when: not pv_dev_stat.stat.exists
+
+    - name: Create PV (safe if already a PV)
+      lvg:
+        vg: "{{ vg_name }}"
+        pvs: "{{ pv_device }}"
+      register: vg_create
+
+    - name: Create LV
+      lvol:
+        vg: "{{ vg_name }}"
+        lv: "{{ lv_name }}"
+        size: "{{ lv_size }}"
+        state: present
+
+    - name: Set device path for LV
+      set_fact:
+        lv_dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+    - name: Create filesystem (only if not present)
+      filesystem:
+        fstype: "{{ fs_type }}"
+        dev: "{{ lv_dev }}"
+
+    - name: Create mount directory
+      file:
+        path: "{{ mount_path }}"
+        state: directory
+        owner: "{{ mount_owner }}"
+        group: "{{ mount_group }}"
+        mode: "{{ mount_mode }}"
+
+    - name: Mount and persist in fstab
+      mount:
+        path: "{{ mount_path }}"
+        src: "{{ lv_dev }}"
+        fstype: "{{ fs_type }}"
+        opts: "defaults"
+        state: mounted
+
+    - name: Ensure mount directory ownership after mount
+      file:
+        path: "{{ mount_path }}"
+        state: directory
+        owner: "{{ mount_owner }}"
+        group: "{{ mount_group }}"
+        mode: "{{ mount_mode }}"
