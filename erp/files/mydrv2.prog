@@ -1,0 +1,185 @@
+#!/bin/ksh
+
+TIME_STAMP=`date +%Y%m%d.%H%M`
+
+. /u01/app/oracle/EBSapps.env RUN
+
+LOGFILE="$XXEBG_TOP/install/MVP4/MVP4DBDRV.log"; export LOGFILE
+if [ $LOGFILE ]
+then rm -f $LOGFILE
+fi
+
+export DB_USRNM=APPS/$apps_passwd@ENEMPDB
+
+echo " "
+echo "Start of Log File"
+echo "--------------------------------------------------------------" | tee -a $LOGFILE
+echo "Creating Database Objects..."
+echo "------------------------------Alert---------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# FNDLOAD: ALERT
+# ==========================================================
+[FNDLOAD_ALERT]
+lct=$ALR_TOP/patch/115/import/alr.lct
+args=WARNING=YES UPLOAD_MODE=REPLACE CUSTOM_MODE=FORCE
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_CONC_PGM_NOTIFICATION.ldt
+[/FNDLOAD_ALERT]
+
+
+echo "------------------------------Value Set-----------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# FNDLOAD: VALUE SETS
+# ==========================================================
+[FNDLOAD_VALUESET]
+lct=$FND_TOP/patch/115/import/afffload.lct
+args=WARNING=YES UPLOAD_MODE=REPLACE CUSTOM_MODE=FORCE
+$XXEBG_TOP/install/MVP4/XXEBG_EMP_PM_DM.ldt
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_PPM_PRJ.ldt
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_PPM_PRJ_CAT.ldt
+[/FNDLOAD_VALUESET]
+
+
+echo "------------------------------Tables--------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# SQLPLUS: TABLES
+# ==========================================================
+[SQL_TABLES]
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_SUPP_EXT_T.sql
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_SUPP_HIS_T.sql
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_PPM_PRJ_MAS_T.sql
+[/SQL_TABLES]
+
+
+echo "------------------------------Sequence------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# SQLPLUS: SEQUENCES
+# ==========================================================
+[SQL_SEQUENCES]
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_COST_REPORT_BKP_S.sql
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_COST_REPORT_S.sql
+[/SQL_SEQUENCES]
+
+
+echo "------------------------------View----------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# SQLPLUS: VIEWS
+# ==========================================================
+[SQL_VIEWS]
+$XXEBG_TOP/install/MVP4/APPS.XXEBG_CR_DET.sql
+$XXEBG_TOP/install/MVP4/XXEBG_CR_DET.sql
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_PPM_PRJ_MAS_V.sql
+[/SQL_VIEWS]
+
+
+echo "------------------------------Functions-----------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# SQLPLUS: FUNCTIONS
+# ==========================================================
+[SQL_FUNCTIONS]
+$XXEBG_TOP/install/MVP4/GET_EMAIL_ADDRESS.fnc
+$XXEBG_TOP/install/MVP4/GET_GL_ACCOUNT.fnc
+[/SQL_FUNCTIONS]
+
+
+echo "------------------------------Packages------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# SQLPLUS: PACKAGES (SPEC)
+# ==========================================================
+[SQL_PACKAGES_SPEC]
+$XXEBG_TOP/install/MVP4/APPS.XXEBG_CLARITY_PPM_PR_PKG.pks
+[/SQL_PACKAGES_SPEC]
+
+# ==========================================================
+# SQLPLUS: PACKAGES (BODY)
+# ==========================================================
+[SQL_PACKAGES_BODY]
+$XXEBG_TOP/install/MVP4/APPS.XXEBG_CLARITY_PPM_PR_PKG.pkb
+[/SQL_PACKAGES_BODY]
+
+
+echo "------------------------------Concurrent Program------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# FNDLOAD: CONCURRENT PROGRAM
+# ==========================================================
+[FNDLOAD_CONCURRENT_PROGRAM]
+lct=$FND_TOP/patch/115/import/afcprog.lct
+args=WARNING=YES UPLOAD_MODE=REPLACE CUSTOM_MODE=FORCE
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_SUPP_EXTRACT.ldt
+$XXEBG_TOP/install/MVP4/XXEBG_CLARITY_SUPP_EXTRACT_KSH.ldt
+[/FNDLOAD_CONCURRENT_PROGRAM]
+
+
+echo "------------------------------Copy Prog file-----------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# COPY: PROG FILES -> FS1/FS2 BIN
+# ==========================================================
+[Prog_File_Copy]
+dest=/u01/app/oracle/fs2/EBSapps/appl/xxebg/12.0.0/bin/
+dest=/u01/app/oracle/fs1/EBSapps/appl/xxebg/12.0.0/bin/
+src=$XXEBG_TOP/install/MVP4/xxebg_clarity_supp_extract_ksh.prog
+[/Prog_File_Copy]
+
+
+echo "------------------------------ctl file----------------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# COPY: CTL FILES -> FS1/FS2 BIN
+# ==========================================================
+[CTL_File_Copy]
+dest=/u01/app/oracle/fs2/EBSapps/appl/xxebg/12.0.0/bin/
+dest=/u01/app/oracle/fs1/EBSapps/appl/xxebg/12.0.0/bin/
+src=$XXEBG_TOP/install/MVP4/xxebg_clarity_prj_master_det.ctl
+[/CTL_File_Copy]
+
+
+echo "------------------------------sql Script File----------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# COPY: SQL SCRIPTS -> CTM SQL DIR
+# ==========================================================
+[CTM_SQL_Copy]
+dest=/empower_ctm_tasks/ctm/sql/
+src=$XXEBG_TOP/install/MVP4/xxebg_clarity_supp_extract.sql
+src=$XXEBG_TOP/install/MVP4/xxebg_clarity_pr_reponse_file.sql
+[/CTM_SQL_Copy]
+
+
+echo "------------------------------Request Set--------------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# FNDLOAD: REQUEST SETS
+# ==========================================================
+[FNDLOAD_REQUEST_SET]
+lct=$FND_TOP/patch/115/import/afcprset.lct
+args=WARNING=YES UPLOAD_MODE=REPLACE CUSTOM_MODE=FORCE
+PR_ATTACH.ldt
+PR_ATTACH_LINK.ldt
+[/FNDLOAD_REQUEST_SET]
+
+
+echo "------------------------------OAF VO File--------------------------------" | tee -a $LOGFILE
+
+# ==========================================================
+# COPY: OAF XML -> FS1/FS2 JAVA CLASSES PATH
+# ==========================================================
+[OAF_VO_Copy]
+dest=/u01/app/oracle/fs2/EBSapps/comn/java/classes/xxebg/oracle/apps/xxebg/inv/invdigitization/server/
+dest=/u01/app/oracle/fs1/EBSapps/comn/java/classes/xxebg/oracle/apps/xxebg/inv/invdigitization/server/
+src=$XXEBG_TOP/install/MVP4/XxebgPODetailsVO.xml
+[/OAF_VO_Copy]
+
+
+echo "------------------------------end----------------------------------------" | tee -a $LOGFILE
+
+echo "Completed Installation...." | tee -a $LOGFILE
+echo "Completed Installation" | tee -a $LOGFILE
+echo "End of Logfile"

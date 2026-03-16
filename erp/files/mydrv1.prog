@@ -1,0 +1,7 @@
+echo "------------------------------Copy Prog file-----------------------------" | tee -a $LOGFILE
+
+#@COPY src=$XXEBG_TOP/install/MVP4/xxebg_clarity_supp_extract_ksh.prog dst=/u01/app/oracle/fs2/EBSapps/appl/xxebg/12.0.0/bin/
+cp -r $XXEBG_TOP/install/MVP4/xxebg_clarity_supp_extract_ksh.prog /u01/app/oracle/fs2/EBSapps/appl/xxebg/12.0.0/bin/ | tee -a $LOGFILE
+
+#@COPY src=$XXEBG_TOP/install/MVP4/xxebg_clarity_supp_extract_ksh.prog dst=/u01/app/oracle/fs1/EBSapps/appl/xxebg/12.0.0/bin/
+cp -r $XXEBG_TOP/install/MVP4/xxebg_clarity_supp_extract_ksh.prog /u01/app/oracle/fs1/EBSapps/appl/xxebg/12.0.0/bin/ | tee -a $LOGFILE

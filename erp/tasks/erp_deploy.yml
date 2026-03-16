@@ -1,0 +1,170 @@
+---
+- name: Copy files as per prog file COPY blocks (package-based)
+  hosts: ebs_host
+  gather_facts: false
+  become: true
+
+  vars:
+    # Folder where the deployment zip is extracted on the target VM
+    deploy_root: "/u01/app/oracle/deploy/extracted_pkg"
+
+    # Prog file path inside extracted package
+    prog_file: "{{ deploy_root }}/MVP4DBDRV.prog"
+
+    # COPY blocks to process (add/remove as needed)
+    copy_blocks:
+      - "Prog_File_Copy"
+      - "CTL_File_Copy"
+      - "CTM_SQL_Copy"
+      - "OAF_VO_Copy"
+
+  tasks:
+    - name: Validate deploy_root exists
+      stat:
+        path: "{{ deploy_root }}"
+      register: deploy_root_stat
+
+    - name: Fail if deploy_root is missing
+      fail:
+        msg: "deploy_root does not exist on target host: {{ deploy_root }}"
+      when: not deploy_root_stat.stat.exists
+
+    - name: Validate prog file exists
+      stat:
+        path: "{{ prog_file }}"
+      register: prog_stat
+
+    - name: Fail if prog file is missing
+      fail:
+        msg: "Prog file not found: {{ prog_file }}"
+      when: not prog_stat.stat.exists
+
+    - name: Read prog file
+      slurp:
+        src: "{{ prog_file }}"
+      register: prog_raw
+
+    - name: Decode prog file content
+      set_fact:
+        prog_text: "{{ prog_raw.content | b64decode }}"
+
+    - name: Execute COPY blocks
+      loop: "{{ copy_blocks }}"
+      loop_control:
+        label: "{{ item }}"
+      vars:
+        # Extract block content
+        block_text: >-
+          {{
+            (prog_text
+              | regex_search('(?s)\\[' ~ item ~ '\\](.*?)\\[\\/' ~ item ~ '\\]', '\\1')
+              | default('')
+            )
+          }}
+
+        # Get dest list
+        dests: >-
+          {{
+            (block_text
+              | regex_findall('(?m)^dest=([^#\\r\\n]+)$')
+              | map('trim')
+              | list
+            )
+          }}
+
+        # Get src list (ignore commented/blank)
+        src_lines: >-
+          {{
+            (block_text
+              | regex_findall('(?m)^src=([^#\\r\\n]+)$')
+              | map('trim')
+              | reject('equalto', '')
+              | list
+            )
+          }}
+
+        # Convert src lines to filenames only
+        filenames: "{{ src_lines | map('basename') | list }}"
+
+      block:
+        - name: Skip if block not present in prog file
+          debug:
+            msg: "Block {{ item }} not found in prog file, skipping."
+          when: block_text | length == 0
+
+        - name: Fail if block present but missing src/dest
+          fail:
+            msg: >-
+              Block {{ item }} is present but missing src or dest lines.
+              src_count={{ filenames | length }}, dest_count={{ dests | length }}.
+          when:
+            - block_text | length > 0
+            - (filenames | length == 0) or (dests | length == 0)
+
+        # ---- Find each filename and ensure it is unique ----
+        - name: Find each required source file by filename under deploy_root
+          find:
+            paths: "{{ deploy_root }}"
+            patterns: "{{ file_item }}"
+            recurse: true
+            file_type: file
+          loop: "{{ filenames }}"
+          loop_control:
+            loop_var: file_item
+            label: "{{ file_item }}"
+          register: per_file_find
+          when: block_text | length > 0
+
+        - name: Fail if any required file is missing
+          fail:
+            msg: >-
+              In block {{ item }}, missing file '{{ res.item }}' under {{ deploy_root }}.
+              Please ensure it is included in the zip package.
+          loop: "{{ per_file_find.results }}"
+          loop_control:
+            loop_var: res
+            label: "{{ res.item }}"
+          when:
+            - block_text | length > 0
+            - res.matched | int == 0
+
+        - name: Fail if any required file is found more than once
+          fail:
+            msg: >-
+              In block {{ item }}, file '{{ res.item }}' found {{ res.matched }} times under {{ deploy_root }}.
+              Paths: {{ res.files | map(attribute='path') | list }}
+              Please keep only one copy to avoid ambiguity.
+          loop: "{{ per_file_find.results }}"
+          loop_control:
+            loop_var: res
+            label: "{{ res.item }}"
+          when:
+            - block_text | length > 0
+            - res.matched | int > 1
+
+        # Build a simple list of resolved full paths (same order as filenames)
+        - name: Build resolved source paths for this block
+          set_fact:
+            resolved_src_paths: "{{ per_file_find.results | map(attribute='files') | map('first') | map(attribute='path') | list }}"
+          when: block_text | length > 0
+
+        - name: Show planned copies for this block
+          debug:
+            msg:
+              block: "{{ item }}"
+              sources: "{{ resolved_src_paths }}"
+              destinations: "{{ dests }}"
+          when: block_text | length > 0
+
+        # ---- Copy each resolved src to each dest ----
+        - name: Copy sources to destinations (remote->remote)
+          copy:
+            remote_src: true
+            src: "{{ pair.0 }}"
+            dest: "{{ pair.1 }}/{{ pair.0 | basename }}"
+            mode: preserve
+          loop: "{{ resolved_src_paths | product(dests) | list }}"
+          loop_control:
+            loop_var: pair
+            label: "{{ pair.0 | basename }} -> {{ pair.1 }}"
+          when: block_text | length > 0
