@@ -54,10 +54,10 @@
           {{
             prog_text.splitlines()
             | map('trim')
-            | select('startswith', '[')
-            | select('endswith', ']')
-            | map('replace', '[', '')
-            | map('replace', ']', '')
+            | select('search', '^\\[')
+            | select('search', '\\]$')
+            | map('regex_replace', '^\\[', '')
+            | map('regex_replace', '\\]$', '')
             | select('in', block_types.keys() | list)
             | list
           }}
