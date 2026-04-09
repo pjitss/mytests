@@ -48,19 +48,21 @@
       set_fact:
         prog_text: "{{ prog_text | replace('\r', '') }}"
 
-    - name: Extract ordered block names from prog file
+    - name: Initialize block list
       set_fact:
-        ordered_block_names: >-
-          {{
-            prog_text.splitlines()
-            | map('trim')
-            | select('search', '^\\[')
-            | select('search', '\\]$')
-            | map('regex_replace', '^\\[', '')
-            | map('regex_replace', '\\]$', '')
-            | select('in', block_types.keys() | list)
-            | list
-          }}
+        ordered_block_names: []
+
+    - name: Extract block names safely (no regex at all)
+      set_fact:
+        ordered_block_names: "{{ ordered_block_names + [ block_name ] }}"
+      vars:
+        line: "{{ item | trim }}"
+        block_name: "{{ line | replace('[', '') | replace(']', '') | trim }}"
+      loop: "{{ prog_text.splitlines() }}"
+      when:
+        - line.startswith('[')
+        - line.endswith(']')
+        - block_name in block_types.keys()
 
     - name: Show execution order
       ansible.builtin.debug:
