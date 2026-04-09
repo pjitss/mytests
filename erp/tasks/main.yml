@@ -50,8 +50,8 @@
           {{
             prog_text.splitlines()
             | map('trim')
-            | select('match', '^\\[[A-Za-z0-9_]+\\]$')
-            | map('regex_replace', '^\\[([A-Za-z0-9_]+)\\]$', '\\1')
+            | select('match', '^\\[[^\\]]+\\]$')
+            | map('regex_replace', '^\\[([^\\]]+)\\]$', '\\1')
             | select('in', block_types.keys() | list)
             | list
           }}
