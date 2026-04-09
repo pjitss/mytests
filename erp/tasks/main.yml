@@ -41,19 +41,23 @@
       register: prog_raw
 
     - name: Decode prog file
-      ansible.builtin.set_fact:
+      set_fact:
         prog_text: "{{ prog_raw.content | b64decode }}"
 
+    - name: Normalize line endings
+      set_fact:
+        prog_text: "{{ prog_text | replace('\r', '') }}"
+
     - name: Extract ordered block names from prog file
-      ansible.builtin.set_fact:
+      set_fact:
         ordered_block_names: >-
           {{
             prog_text.splitlines()
             | map('trim')
             | select('startswith', '[')
             | select('endswith', ']')
-            | map('regex_replace', '^\\[', '')
-            | map('regex_replace', '\\]$', '')
+            | map('replace', '[', '')
+            | map('replace', ']', '')
             | select('in', block_types.keys() | list)
             | list
           }}
