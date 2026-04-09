@@ -1,0 +1,95 @@
+---
+- name: Extract COPY destinations
+  ansible.builtin.set_fact:
+    copy_dests: >-
+      {{
+        current_block_text
+        | regex_findall('(?m)^dest=([^#\\r\\n]+)$')
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+
+- name: Extract COPY source lines
+  ansible.builtin.set_fact:
+    copy_src_lines: >-
+      {{
+        current_block_text
+        | regex_findall('(?m)^src=([^#\\r\\n]+)$')
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+
+- name: Convert COPY sources to filenames
+  ansible.builtin.set_fact:
+    copy_filenames: "{{ copy_src_lines | map('basename') | list }}"
+
+- name: Fail if COPY block has no src or dest
+  ansible.builtin.fail:
+    msg: >-
+      Block {{ current_block_name }} is invalid.
+      src_count={{ copy_filenames | length }}, dest_count={{ copy_dests | length }}
+  when: copy_filenames | length == 0 or copy_dests | length == 0
+
+- name: Find each COPY source file under deploy_root
+  ansible.builtin.find:
+    paths: "{{ deploy_root }}"
+    patterns: "{{ file_item }}"
+    recurse: true
+    file_type: file
+  loop: "{{ copy_filenames }}"
+  loop_control:
+    loop_var: file_item
+    label: "{{ file_item }}"
+  register: copy_find_results
+
+- name: Fail if COPY source file is missing
+  ansible.builtin.fail:
+    msg: >-
+      In block {{ current_block_name }}, file '{{ res.item }}' not found under {{ deploy_root }}
+  loop: "{{ copy_find_results.results }}"
+  loop_control:
+    loop_var: res
+    label: "{{ res.item }}"
+  when: res.matched | int == 0
+
+- name: Fail if COPY source file is duplicated
+  ansible.builtin.fail:
+    msg: >-
+      In block {{ current_block_name }}, file '{{ res.item }}' found {{ res.matched }} times.
+      Paths: {{ res.files | map(attribute='path') | list }}
+  loop: "{{ copy_find_results.results }}"
+  loop_control:
+    loop_var: res
+    label: "{{ res.item }}"
+  when: res.matched | int > 1
+
+- name: Build resolved COPY source paths
+  ansible.builtin.set_fact:
+    resolved_copy_src_paths: >-
+      {{
+        copy_find_results.results
+        | map(attribute='files')
+        | map('first')
+        | map(attribute='path')
+        | list
+      }}
+
+- name: Show COPY plan
+  ansible.builtin.debug:
+    msg:
+      block: "{{ current_block_name }}"
+      sources: "{{ resolved_copy_src_paths }}"
+      destinations: "{{ copy_dests }}"
+
+- name: Copy files in block order
+  ansible.builtin.copy:
+    remote_src: true
+    src: "{{ pair.0 }}"
+    dest: "{{ pair.1 }}/{{ pair.0 | basename }}"
+    mode: preserve
+  loop: "{{ resolved_copy_src_paths | product(copy_dests) | list }}"
+  loop_control:
+    loop_var: pair
+    label: "{{ pair.0 | basename }} -> {{ pair.1 }}"

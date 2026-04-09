@@ -1,5 +1,5 @@
 [upload]
 192.168.0.133 ansible_user=Administrator ansible_password=Redhat@123 ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
 
-[download]
-192.168.0.133 ansible_user=Administrator ansible_password=Redhat@123 ansible_connection=winrm ansible_winrm_transport=basic ansible_port=5985 ansible_winrm_server_cert_validation=ignore
+[deploy]
+192.168.0.133 ansible_user=jits ansible_password=redhat ansible_connection=ssh ansible_ssh_common_args='-o StrictHostKeyChecking=no'

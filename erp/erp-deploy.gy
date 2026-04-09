@@ -19,11 +19,11 @@ node {
         }
     }
 
-    if (TASK == "download") {
-        stage('Execute download job') {
+    if (TASK == "deploy") {
+        stage('Execute deploy job') {
             ansiblePlaybook(
-                playbook: "epm/tasks/epm_download.yml",
-                inventory: "epm/env/${ENVNAME}/${ENVNAME}.inv",
+                playbook: "erp/tasks/main.yml",
+                inventory: "erp/env/${ENVNAME}/${ENVNAME}.inv",
                 extraVars: [
                     ENVNAME : "${ENVNAME}",
                     TASK    : "${TASK}",

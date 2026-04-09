@@ -1,0 +1,66 @@
+---
+- name: Execute deployment prog blocks in sequence
+  hosts: deploy
+  gather_facts: false
+  become: true
+
+  vars_files:
+    - vars/erp.vars
+
+  vars:
+    deploy_root: "/u01/app/oracle/deploy/extracted_pkg"
+    prog_file: "{{ deploy_root }}/MVP4DBDRV.prog"
+
+    ebs_env_cmd: ". /u01/app/oracle/EBSapps.env RUN"
+    db_usrnm: "APPS/{{ apps_passwd }}@ENEMPDB"
+
+  tasks:
+    - name: Validate deploy_root exists
+      ansible.builtin.stat:
+        path: "{{ deploy_root }}"
+      register: deploy_root_stat
+
+    - name: Fail if deploy_root is missing
+      ansible.builtin.fail:
+        msg: "deploy_root does not exist: {{ deploy_root }}"
+      when: not deploy_root_stat.stat.exists
+
+    - name: Validate prog file exists
+      ansible.builtin.stat:
+        path: "{{ prog_file }}"
+      register: prog_stat
+
+    - name: Fail if prog file is missing
+      ansible.builtin.fail:
+        msg: "Prog file not found: {{ prog_file }}"
+      when: not prog_stat.stat.exists
+
+    - name: Read prog file
+      ansible.builtin.slurp:
+        src: "{{ prog_file }}"
+      register: prog_raw
+
+    - name: Decode prog file
+      ansible.builtin.set_fact:
+        prog_text: "{{ prog_raw.content | b64decode }}"
+
+    - name: Extract ordered block names from prog file
+      ansible.builtin.set_fact:
+        ordered_block_names: >-
+          {{
+            prog_text
+            | regex_findall('(?m)^\\[([A-Za-z0-9_]+)\\]$')
+            | select('in', block_types.keys() | list)
+            | list
+          }}
+
+    - name: Show execution order
+      ansible.builtin.debug:
+        var: ordered_block_names
+
+    - name: Execute blocks in prog file order
+      ansible.builtin.include_tasks: tasks/execute_block.yml
+      loop: "{{ ordered_block_names }}"
+      loop_control:
+        loop_var: exec_block
+        label: "{{ exec_block }}"

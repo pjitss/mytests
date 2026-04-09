@@ -1,0 +1,32 @@
+---
+- name: Set current block details
+  ansible.builtin.set_fact:
+    current_block_name: "{{ exec_block }}"
+    current_block_type: "{{ block_types[exec_block] }}"
+    current_block_text: >-
+      {{
+        (
+          prog_text
+          | regex_search('(?s)\\[' ~ exec_block ~ '\\](.*?)\\[\\/' ~ exec_block ~ '\\]', '\\1')
+          | default('', true)
+        )
+      }}
+
+- name: Show current block
+  ansible.builtin.debug:
+    msg:
+      block_name: "{{ current_block_name }}"
+      block_type: "{{ current_block_type }}"
+
+- name: Execute COPY block
+  ansible.builtin.include_tasks: run_copy_block.yml
+  when: current_block_type == 'copy'
+
+- name: Execute SQL block
+  ansible.builtin.include_tasks: run_sql_block.yml
+  when: current_block_type == 'sql'
+
+- name: Skip FNDLOAD block for now
+  ansible.builtin.debug:
+    msg: "FNDLOAD execution not added yet for block {{ current_block_name }}"
+  when: current_block_type == 'fndload'
