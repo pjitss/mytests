@@ -48,8 +48,10 @@
       ansible.builtin.set_fact:
         ordered_block_names: >-
           {{
-            prog_text
-            | regex_findall('(?m)^\\[([A-Za-z0-9_]+)\\]$')
+            prog_text.splitlines()
+            | map('trim')
+            | select('match', '^\\[[A-Za-z0-9_]+\\]$')
+            | map('regex_replace', '^\\[([A-Za-z0-9_]+)\\]$', '\\1')
             | select('in', block_types.keys() | list)
             | list
           }}

@@ -19,8 +19,8 @@ node {
         }
     }
 
-    if (TASK == "deploy") {
-        stage('Execute deploy job') {
+    if (TASK == "download") {
+        stage('Execute download job') {
             ansiblePlaybook(
                 playbook: "erp/tasks/main.yml",
                 inventory: "erp/env/${ENVNAME}/${ENVNAME}.inv",
@@ -29,6 +29,16 @@ node {
                     TASK    : "${TASK}",
                     FILENAME: "${FILENAME}"
                 ]
+            )
+        }
+    }
+
+
+    if (TASK == "deploy") {
+        stage('Execute deploy job') {
+            ansiblePlaybook(
+                playbook: "erp/tasks/main.yml",
+                extras: "-vvv -i erp/env/${ENVNAME}/${ENVNAME}.inv -e ENVNAME=${ENVNAME} -e TASK=${TASK} -e FILENAME=${FILENAME}"
             )
         }
     }
