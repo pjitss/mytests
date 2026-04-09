@@ -5,7 +5,7 @@
   become: true
 
   vars_files:
-    - vars/erp.vars
+    - ../vars/erp.vars
 
   vars:
     deploy_root: "/u01/app/oracle/deploy/extracted_pkg"
