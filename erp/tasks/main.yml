@@ -44,9 +44,9 @@
       set_fact:
         prog_text: "{{ prog_raw.content | b64decode }}"
 
-    - name: Normalize line endings
+    - name: Normalize line endings safely
       set_fact:
-        prog_text: "{{ prog_text | replace('\r', '') }}"
+        prog_text: "{{ prog_text | replace('\r\n', '\n') }}"
 
     - name: Initialize block list
       set_fact:
