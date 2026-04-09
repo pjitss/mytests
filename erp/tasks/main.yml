@@ -50,8 +50,8 @@
           {{
             prog_text.splitlines()
             | map('trim')
-            | select('search', '\\[')
-            | select('search', '\\]')
+            | select('startswith', '[')
+            | select('endswith', ']')
             | map('regex_replace', '^\\[', '')
             | map('regex_replace', '\\]$', '')
             | select('in', block_types.keys() | list)
