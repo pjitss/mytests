@@ -1,0 +1,99 @@
+---
+- name: initialize fndload_lct
+  set_fact:
+    fndload_lct: ""
+
+- name: initialize fndload_args
+  set_fact:
+    fndload_args: ""
+
+- name: initialize fndload data lines
+  set_fact:
+    fndload_data_lines: []
+
+- name: extract fndload block details
+  set_fact:
+    fndload_lct: "{{ line | replace('lct=', '') | trim if line.startswith('lct=') else fndload_lct }}"
+    fndload_args: "{{ line | replace('args=', '') | trim if line.startswith('args=') else fndload_args }}"
+    fndload_data_lines: "{{ fndload_data_lines + [ line ] if (line != '' and (not line.startswith('lct=')) and (not line.startswith('args=')) and (not line.startswith('#'))) else fndload_data_lines }}"
+  vars:
+    line: "{{ item | trim }}"
+  loop: "{{ current_block_text.splitlines() }}"
+
+- name: fail if fndload block is invalid
+  fail:
+    msg: "Block {{ current_block_name }} is invalid. lct='{{ fndload_lct }}', data_count={{ fndload_data_lines | length }}"
+  when: fndload_lct == "" or (fndload_data_lines | length) == 0
+
+- name: convert fndload entries to filenames
+  set_fact:
+    fndload_filenames: "{{ fndload_data_lines | map('basename') | list }}"
+
+- name: find each fndload data file under deploy_root
+  find:
+    paths: "{{ deploy_root }}"
+    patterns: "{{ file_item }}"
+    recurse: true
+    file_type: file
+  loop: "{{ fndload_filenames }}"
+  loop_control:
+    loop_var: file_item
+    label: "{{ file_item }}"
+  register: fndload_find_results
+
+- name: fail if fndload data file is missing
+  fail:
+    msg: "In block {{ current_block_name }}, file '{{ res.file_item }}' not found under {{ deploy_root }}"
+  loop: "{{ fndload_find_results.results }}"
+  loop_control:
+    loop_var: res
+    label: "{{ res.file_item }}"
+  when: res.matched | int == 0
+
+- name: fail if fndload data file is duplicated
+  fail:
+    msg: "In block {{ current_block_name }}, file '{{ res.file_item }}' found {{ res.matched }} times. Paths: {{ res.files | map(attribute='path') | list }}"
+  loop: "{{ fndload_find_results.results }}"
+  loop_control:
+    loop_var: res
+    label: "{{ res.file_item }}"
+  when: res.matched | int > 1
+
+- name: build resolved fndload data file paths
+  set_fact:
+    resolved_fndload_paths: "{{ fndload_find_results.results | map(attribute='files') | map('first') | map(attribute='path') | list }}"
+
+- name: fail if lct mapping is missing
+  fail:
+    msg: "No LCT mapping found for '{{ fndload_lct }}' in vars/block_types.yml"
+  when: fndload_lct not in fndload_lct_paths
+
+- name: set resolved fndload lct path
+  set_fact:
+    resolved_fndload_lct: "{{ fndload_lct_paths[fndload_lct] }}"
+
+- name: show fndload execution plan
+  debug:
+    msg:
+      block: "{{ current_block_name }}"
+      lct: "{{ resolved_fndload_lct }}"
+      args: "{{ fndload_args }}"
+      data_files: "{{ resolved_fndload_paths }}"
+
+- name: run fndload files in block order
+  shell: |
+    {{ ebs_env_cmd }}
+    export DB_USRNM="{{ db_usrnm }}"
+    $FND_TOP/bin/FNDLOAD "$DB_USRNM" 0 Y UPLOAD "{{ resolved_fndload_lct }}" "{{ fnd_file }}" {{ fndload_args }}
+  args:
+    executable: /bin/bash
+  loop: "{{ resolved_fndload_paths }}"
+  loop_control:
+    loop_var: fnd_file
+    label: "{{ current_block_name }} -> {{ fnd_file | basename }}"
+  register: fndload_run_result
+  changed_when: true
+
+- name: show fndload output
+  debug:
+    var: fndload_run_result.results
