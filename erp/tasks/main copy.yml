@@ -1,76 +1,46 @@
 ---
-- name: Execute deployment prog blocks in sequence
-  hosts: deploy
-  gather_facts: false
-  become: true
+- name: Set current block details
+  set_fact:
+    current_block_name: "{{ exec_block }}"
+    current_block_type: "{{ block_types[exec_block] }}"
 
-  vars_files:
-    - ../vars/erp.vars
+- name: Extract current block text using awk
+  shell: |
+    awk '
+      $0 == "[{{ exec_block }}]" {flag=1; next}
+      $0 == "[/{{ exec_block }}]" {flag=0; exit}
+      flag
+    ' "{{ prog_file }}"
+  args:
+    executable: /bin/bash
+  register: block_extract
+  changed_when: false
 
-  vars:
-    deploy_root: "/u01/app/oracle/deploy/extracted_pkg"
-    prog_file: "{{ deploy_root }}/MVP4DBDRV.prog"
+- name: Set current block text
+  set_fact:
+    current_block_text: "{{ block_extract.stdout }}"
 
-    ebs_env_cmd: ". /u01/app/oracle/EBSapps.env RUN"
-    db_usrnm: "APPS/{{ apps_passwd }}@ENEMPDB"
+- name: Fail if block body is empty
+  fail:
+    msg: "Block {{ current_block_name }} was found but its body could not be extracted."
+  when: current_block_text | trim == ""
 
-  tasks:
-    - name: Validate deploy_root exists
-      ansible.builtin.stat:
-        path: "{{ deploy_root }}"
-      register: deploy_root_stat
+- name: Show current block
+  debug:
+    msg:
+      block_name: "{{ current_block_name }}"
+      block_type: "{{ current_block_type }}"
+      block_text: "{{ current_block_text.splitlines() }}"
 
-    - name: Fail if deploy_root is missing
-      ansible.builtin.fail:
-        msg: "deploy_root does not exist: {{ deploy_root }}"
-      when: not deploy_root_stat.stat.exists
+- name: Execute COPY block
+  include_tasks: run_copy_block.yml
+  when: current_block_type == 'copy'
 
-    - name: Validate prog file exists
-      ansible.builtin.stat:
-        path: "{{ prog_file }}"
-      register: prog_stat
+- name: Execute SQL block
+  include_tasks: run_sql_block.yml
+  when: current_block_type == 'sql'
 
-    - name: Fail if prog file is missing
-      ansible.builtin.fail:
-        msg: "Prog file not found: {{ prog_file }}"
-      when: not prog_stat.stat.exists
-
-    - name: Read prog file
-      ansible.builtin.slurp:
-        src: "{{ prog_file }}"
-      register: prog_raw
-
-    - name: Decode prog file
-      set_fact:
-        prog_text: "{{ prog_raw.content | b64decode }}"
-
-    - name: Normalize line endings safely
-      set_fact:
-        prog_text: "{{ prog_text | replace('\r\n', '\n') }}"
-
-    - name: Initialize block list
-      set_fact:
-        ordered_block_names: []
-
-    - name: Extract block names safely (no regex at all)
-      set_fact:
-        ordered_block_names: "{{ ordered_block_names + [ block_name ] }}"
-      vars:
-        line: "{{ item | trim }}"
-        block_name: "{{ line | replace('[', '') | replace(']', '') | trim }}"
-      loop: "{{ prog_text.splitlines() }}"
-      when:
-        - line.startswith('[')
-        - line.endswith(']')
-        - block_name in block_types.keys()
-
-    - name: Show execution order
-      ansible.builtin.debug:
-        var: ordered_block_names
-
-    - name: Execute blocks in prog file order
-      ansible.builtin.include_tasks: execute_block.yml
-      loop: "{{ ordered_block_names }}"
-      loop_control:
-        loop_var: exec_block
-        label: "{{ exec_block }}"
+- name: Skip FNDLOAD block for now
+  debug:
+    msg: "FNDLOAD execution not added yet for block {{ current_block_name }}"
+  when: current_block_type == 'fndload'

@@ -1,26 +1,29 @@
 ---
-- name: Extract SQL lines
-  ansible.builtin.set_fact:
-    sql_lines: >-
-      {{
-        current_block_text.splitlines()
-        | map('trim')
-        | reject('equalto', '')
-        | reject('match', '^#')
-        | list
-      }}
+- name: initialize sql_lines
+  set_fact:
+    sql_lines: []
 
-- name: Convert SQL entries to filenames
-  ansible.builtin.set_fact:
+- name: extract sql lines
+  set_fact:
+    sql_lines: "{{ sql_lines + [ line ] }}"
+  vars:
+    line: "{{ item | trim }}"
+  loop: "{{ current_block_text.splitlines() }}"
+  when:
+    - line != ''
+    - not line.startswith('#')
+
+- name: convert sql entries to filenames
+  set_fact:
     sql_filenames: "{{ sql_lines | map('basename') | list }}"
 
-- name: Fail if SQL block is empty
-  ansible.builtin.fail:
-    msg: "Block {{ current_block_name }} is present but has no SQL files listed."
+- name: fail if sql block is empty
+  fail:
+    msg: "block {{ current_block_name }} is present but no sql file listed"
   when: sql_filenames | length == 0
 
-- name: Find each SQL file under deploy_root
-  ansible.builtin.find:
+- name: find each sql file under deploy_root
+  find:
     paths: "{{ deploy_root }}"
     patterns: "{{ file_item }}"
     recurse: true
@@ -31,47 +34,37 @@
     label: "{{ file_item }}"
   register: sql_find_results
 
-- name: Fail if SQL file is missing
-  ansible.builtin.fail:
-    msg: >-
-      In block {{ current_block_name }}, file '{{ res.item }}' not found under {{ deploy_root }}
+- name: fail if sql file is missing
+  fail:
+    msg: "In block {{ current_block_name }}, file {{ res.item }} not found under {{ deploy_root }}"
   loop: "{{ sql_find_results.results }}"
   loop_control:
     loop_var: res
     label: "{{ res.item }}"
   when: res.matched | int == 0
 
-- name: Fail if SQL file is duplicated
-  ansible.builtin.fail:
-    msg: >-
-      In block {{ current_block_name }}, file '{{ res.item }}' found {{ res.matched }} times.
-      Paths: {{ res.files | map(attribute='path') | list }}
+- name: fail if sql file is duplicated
+  fail:
+    msg: "In block {{ current_block_name }}, file {{ res.item }} found {{ res.matched }} times. Paths: {{ res.files | map(attribute='path') | list }}"
   loop: "{{ sql_find_results.results }}"
   loop_control:
     loop_var: res
     label: "{{ res.item }}"
   when: res.matched | int > 1
 
-- name: Build resolved SQL file paths
-  ansible.builtin.set_fact:
-    resolved_sql_paths: >-
-      {{
-        sql_find_results.results
-        | map(attribute='files')
-        | map('first')
-        | map(attribute='path')
-        | list
-      }}
+- name: build resolved sql file paths
+  set_fact:
+    resolved_sql_paths: "{{ sql_find_results.results | map(attribute='files') | map('first') | map(attribute='path') | list }}"
 
-- name: Show SQL execution plan
-  ansible.builtin.debug:
+- name: show sql execution plan
+  debug:
     msg:
       block: "{{ current_block_name }}"
       sql_files: "{{ resolved_sql_paths }}"
 
-- name: Run SQL files in block order
-  ansible.builtin.shell: |
-    WRAP="/tmp/sqlwrap_{{ current_block_name }}_{{ (sql_file | basename) | regex_replace('[^A-Za-z0-9_.-]', '_') }}_$$.sql"
+- name: run sql files in block order
+  shell: |
+    WRAP="/tmp/sqlwrap_{{ current_block_name }}_{{ sql_file | basename }}_$$.sql"
 
     cat > "$WRAP" <<EOF
     whenever sqlerror exit failure rollback;
@@ -95,6 +88,6 @@
   register: sql_run_result
   changed_when: true
 
-- name: Show SQL output
-  ansible.builtin.debug:
+- name: show sql output
+  debug:
     var: sql_run_result.results
