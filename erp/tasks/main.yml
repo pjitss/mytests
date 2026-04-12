@@ -69,7 +69,7 @@
         var: ordered_block_names
 
     - name: Execute blocks in prog file order
-      ansible.builtin.include_tasks: tasks/execute_block.yml
+      ansible.builtin.include_tasks: execute_block.yml
       loop: "{{ ordered_block_names }}"
       loop_control:
         loop_var: exec_block

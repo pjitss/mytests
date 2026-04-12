@@ -38,7 +38,7 @@ node {
         stage('Execute deploy job') {
             ansiblePlaybook(
                 playbook: "erp/tasks/main.yml",
-                extras: "-vv -i erp/env/${ENVNAME}/${ENVNAME}.inv -e ENVNAME=${ENVNAME} -e TASK=${TASK} -e FILENAME=${FILENAME}"
+                extras: " -i erp/env/${ENVNAME}/${ENVNAME}.inv -e ENVNAME=${ENVNAME} -e TASK=${TASK} -e FILENAME=${FILENAME}"
             )
         }
     }
