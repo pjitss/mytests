@@ -1,16 +1,44 @@
 ---
-- name: Set current block details
+- name: Initialize block extraction state
   ansible.builtin.set_fact:
     current_block_name: "{{ exec_block }}"
     current_block_type: "{{ block_types[exec_block] }}"
-    current_block_text: >-
+    current_block_text_lines: []
+    inside_current_block: false
+
+- name: Collect lines for current block
+  ansible.builtin.set_fact:
+    current_block_text_lines: >-
       {{
-        (
-          prog_text
-          | regex_search('(?s)\\[' ~ exec_block ~ '\\](.*?)\\[\\/' ~ exec_block ~ '\\]', '\\1')
-          | default('', true)
+        current_block_text_lines + (
+          [ line ] if (
+            inside_current_block
+            and line != '[/' ~ exec_block ~ ']'
+          ) else []
         )
       }}
+    inside_current_block: >-
+      {{
+        true if line == '[' ~ exec_block ~ ']' else
+        false if line == '[/' ~ exec_block ~ ']' else
+        inside_current_block
+      }}
+  vars:
+    line: "{{ item | trim }}"
+  loop: "{{ prog_text.splitlines() }}"
+
+- name: Build current block text
+  ansible.builtin.set_fact:
+    current_block_text: "{{ current_block_text_lines | join('\n') }}"
+
+- name: Debug extracted block text
+  ansible.builtin.debug:
+    var: current_block_text
+
+- name: Fail if block body is empty
+  ansible.builtin.fail:
+    msg: "Block {{ current_block_name }} was found in execution list but its body could not be extracted."
+  when: current_block_text_lines | length == 0
 
 - name: Show current block
   ansible.builtin.debug:

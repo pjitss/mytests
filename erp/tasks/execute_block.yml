@@ -1,60 +1,46 @@
 ---
-- name: Initialize block extraction state
-  ansible.builtin.set_fact:
+- name: Set current block details
+  set_fact:
     current_block_name: "{{ exec_block }}"
     current_block_type: "{{ block_types[exec_block] }}"
-    current_block_text_lines: []
-    inside_current_block: false
 
-- name: Collect lines for current block
-  ansible.builtin.set_fact:
-    current_block_text_lines: >-
-      {{
-        current_block_text_lines + (
-          [ line ] if (
-            inside_current_block
-            and line != '[/' ~ exec_block ~ ']'
-          ) else []
-        )
-      }}
-    inside_current_block: >-
-      {{
-        true if line == '[' ~ exec_block ~ ']' else
-        false if line == '[/' ~ exec_block ~ ']' else
-        inside_current_block
-      }}
-  vars:
-    line: "{{ item | trim }}"
-  loop: "{{ prog_text.splitlines() }}"
+- name: Extract current block text using awk
+  shell: |
+    awk '
+      $0 == "[{{ exec_block }}]" {flag=1; next}
+      $0 == "[/{{ exec_block }}]" {flag=0; exit}
+      flag
+    ' "{{ prog_file }}"
+  args:
+    executable: /bin/bash
+  register: block_extract
+  changed_when: false
 
-- name: Build current block text
-  ansible.builtin.set_fact:
-    current_block_text: "{{ current_block_text_lines | join('\n') }}"
-
-- name: Debug extracted block text
-  ansible.builtin.debug:
-    var: current_block_text
+- name: Set current block text
+  set_fact:
+    current_block_text: "{{ block_extract.stdout }}"
 
 - name: Fail if block body is empty
-  ansible.builtin.fail:
-    msg: "Block {{ current_block_name }} was found in execution list but its body could not be extracted."
-  when: current_block_text_lines | length == 0
+  fail:
+    msg: "Block {{ current_block_name }} was found but its body could not be extracted."
+  when: current_block_text | trim == ""
 
 - name: Show current block
-  ansible.builtin.debug:
+  debug:
     msg:
       block_name: "{{ current_block_name }}"
       block_type: "{{ current_block_type }}"
+      block_text: "{{ current_block_text.splitlines() }}"
 
 - name: Execute COPY block
-  ansible.builtin.include_tasks: run_copy_block.yml
+  include_tasks: run_copy_block.yml
   when: current_block_type == 'copy'
 
 - name: Execute SQL block
-  ansible.builtin.include_tasks: run_sql_block.yml
+  include_tasks: run_sql_block.yml
   when: current_block_type == 'sql'
 
 - name: Skip FNDLOAD block for now
-  ansible.builtin.debug:
+  debug:
     msg: "FNDLOAD execution not added yet for block {{ current_block_name }}"
   when: current_block_type == 'fndload'
