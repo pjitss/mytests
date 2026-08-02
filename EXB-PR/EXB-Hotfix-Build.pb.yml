@@ -1,0 +1,129 @@
+---
+## Build playbook - runs on Jenkins node (localhost) to create zip,
+## then copies it to the target host's precheck folder for app team review.
+
+- hosts: localhost
+  gather_facts: no
+  connection: local
+  vars_files:
+    - "vars/{{ ENVNAME }}/pr-deploy.var"
+
+  tasks:
+
+    - name: create hotfix zip archive
+      shell: |
+        cd "{{ WRK }}/eximbills"
+
+        # filelist_path is a newline-separated file on disk
+        # This avoids any shell argument or env var size limit regardless of file count
+        cat "{{ filelist_path }}" | zip -r "{{ WRK }}/{{ artifact_name }}" -@
+
+        ls -lh "{{ WRK }}/{{ artifact_name }}"
+        unzip -l "{{ WRK }}/{{ artifact_name }}"
+      args:
+        executable: /bin/bash
+      register: archive_result
+      tags:
+        - archive
+
+    - name: verify archive was created
+      stat:
+        path: "{{ WRK }}/{{ artifact_name }}"
+      register: archive_stat
+      failed_when: not archive_stat.stat.exists
+      tags:
+        - archive
+
+    - name: enforce hotfix size limit
+      fail:
+        msg: >
+          SAFETY ABORT: Archive size
+          {{ archive_stat.stat.size | human_readable }}
+          exceeds 700 MB limit.
+          This usually means folder paths were passed instead of individual file paths.
+          Check CHANGED_FILES -- it should list specific file paths, not top-level directories.
+      when: archive_stat.stat.size > 700715200
+      tags:
+        - archive
+
+    - name: archive creation summary
+      debug:
+        msg: "Hotfix archive created: {{ artifact_name }} ({{ archive_stat.stat.size | human_readable }})"
+      tags:
+        - archive
+
+    - name: write manifest sidecar
+      shell: |
+        # Keep newline-separated -- comma separator breaks filenames that contain commas
+        cp "{{ filelist_path }}" "{{ WRK }}/{{ artifact_name }}.manifest"
+      args:
+        executable: /bin/bash
+      tags:
+        - archive
+
+
+- hosts: test
+  become: yes
+  become_user: eximadm
+  gather_facts: yes
+  vars_files:
+    - "vars/{{ ENVNAME }}/pr-deploy.var"
+
+  vars:
+    precheck_dir: "{{ app_home }}/Hotfix_Deploy_Precheck"
+
+  tasks:
+
+    - name: ping connectivity check
+      ping:
+      tags:
+        - precheck
+
+    - name: ensure precheck directory exists
+      file:
+        path: "{{ precheck_dir }}"
+        state: directory
+        mode: '0755'
+      tags:
+        - precheck
+
+    - name: copy hotfix zip to precheck folder
+      copy:
+        src: "{{ WRK }}/{{ artifact_name }}"
+        dest: "{{ precheck_dir }}/{{ artifact_name }}"
+        mode: '0644'
+      tags:
+        - precheck
+
+    - name: copy manifest sidecar to precheck folder
+      copy:
+        src: "{{ WRK }}/{{ artifact_name }}.manifest"
+        dest: "{{ precheck_dir }}/{{ artifact_name }}.manifest"
+        mode: '0644'
+      tags:
+        - precheck
+
+    - name: list precheck folder contents
+      shell: "ls -lh {{ precheck_dir }}/"
+      register: precheck_ls
+      tags:
+        - precheck
+
+    - name: precheck summary
+      debug:
+        msg:
+          - "============================================================"
+          - " HOTFIX PACKAGE READY FOR APP TEAM REVIEW"
+          - "============================================================"
+          - " Package  : {{ artifact_name }}"
+          - " Location : {{ precheck_dir }}/{{ artifact_name }}"
+          - " Manifest : {{ precheck_dir }}/{{ artifact_name }}.manifest"
+          - "------------------------------------------------------------"
+          - " Precheck folder contents:"
+          - "{{ precheck_ls.stdout }}"
+          - "============================================================"
+          - " When verified, trigger EXB-Hotfix-Deploy with:"
+          - "   PACKAGENAME = {{ artifact_name }}"
+          - "============================================================"
+      tags:
+        - precheck
